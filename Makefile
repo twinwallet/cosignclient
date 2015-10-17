@@ -1,13 +1,13 @@
 BIN_PATH:=node_modules/.bin/
 
-all:	cosignclient.min.js
+all:	cosignclient-angular.min.js
 
 clean:
-	rm -f cosignclient.js
-	rm -f cosignclient.min.js
+	rm -f cosignclient-angular.js
+	rm -f cosignclient-angular.min.js
 
-cosignclient.js: index.js
+cosignclient-angular.js: index-angular.js
 	${BIN_PATH}browserify $< > $@
 
-cosignclient.min.js: angular-bitcore-wallet-client.js
+cosignclient-angular.min.js: cosignclient-angular.js
 	${BIN_PATH}uglify  -s $<  -o $@
