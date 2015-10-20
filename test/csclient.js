@@ -17,8 +17,11 @@ var CSClient = require('../lib/csclient');
 // request key is the derivation m/1'/0 of tprv8ZgxMBicQKsPfB68j6QH2jhxju935kx7eXqg28aMBD49wd7Crrqwv665r7ikjeMH8N1jb25J45LhTm7FwhqNRHp7Ddy6CcVfYpHW73zAdvP
 var MOCK_REQPRIVKEY = '2fde5d887c7c60c723d46947706b747a84a019e3863bb00a8ad2127f4ec09273';
 var MOCK_REQPUBKEY = (new Bitcore.PrivateKey(MOCK_REQPRIVKEY)).toPublicKey().toString();
+var MOCK_WALLETPRIVKEY = 'f57ff6cb88b8b7777250828017de1dd69ee29ad56eeb492929ef522e0cc17cea';
+var MOCK_WALLETPUBKEY = (new Bitcore.PrivateKey(MOCK_WALLETPRIVKEY)).toPublicKey().toString();
 var MOCK_REQUEST_NULL = function() { return { then: function(s,e) {} } };
 var MOCK_SHAREDENCRIPTINGKEY = '-shared-encripting-key-placeholder-';
+var MOCK_COPAYERHASH = '-copayer-hash-placeholder-';
 var MOCK_CREDENTIALS = {
     walletId: '7c9a7df9-990c-4de6-8f49-572ff0938216',
     sharedEncryptingKey: MOCK_SHAREDENCRIPTINGKEY,
@@ -61,7 +64,7 @@ function testErr(done, msg) {
 }
 
 function signatureShouldBeOk(callArg, expected) {
-    var msg = 'post|' + expected.url + '|' + JSON.stringify(expected.data);
+    var msg = expected.method.toLocaleLowerCase() + '|' + expected.url + '|' + JSON.stringify(expected.data);
     var signOk = walletUtils.verifyMessage(msg, callArg.headers['x-signature'], MOCK_REQPUBKEY);
     signOk.should.be.true;
 }
@@ -73,11 +76,12 @@ describe('CSClient', function () {
         bwutils: walletUtils,
     };
     var creation_opts;
-    var MOCK_HTTP_RESPONSE= {
+    var MOCK_HTTP_RESPONSE = {
         data: {},
-        status: '',
-        config: '',
-        headers: ''
+        status: 200,
+        //statusText: 'OK',
+        config: {headers: {}, method: '', url: ''},
+        headers: null,
     };
     var http_response;
     beforeEach(function () {
@@ -92,7 +96,7 @@ describe('CSClient', function () {
             }).to.throw(Error);
         });
         _.forEach(MOCK_OPTS, function (v, parameter) {
-            it('should throw error with missing parameter ' + parameter, function (done) {
+            it('should throw error with missing parameter ' + parameter, function () {
                 delete creation_opts[parameter];
                 expect(function () {
                     var csclient = new CSClient(creation_opts);
@@ -109,7 +113,7 @@ describe('CSClient', function () {
     });
 
     describe('.getHash', function () {
-        it('should return error with null argument', function () {
+        it('should return error with null argument', function (done) {
             var csclient = new CSClient(creation_opts);
             csclient.getHash(null, function (err, hash) {
                 should.exist(err);
@@ -125,6 +129,7 @@ describe('CSClient', function () {
                 csclient.getHash(credentials, function (err, data) {
                     should.exist(err);
                     should.not.exist(data);
+                    done();
                 });
             });
         });
@@ -159,10 +164,25 @@ describe('CSClient', function () {
             });
         });
         it('should return correct hash', function (done) {
-            throw 'not implemented yet';
+            http_response.data = {copayerHash: MOCK_COPAYERHASH};
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            csclient.getHash(MOCK_CREDENTIALS, function (err, hash) {
+                should.not.exist(err);
+                should.exist(hash);
+                hash.should.equal(MOCK_COPAYERHASH)
+                done();
+            });
         });
-        it('should return error if bad hash', function (done) {
-            throw 'not implemented yet';
+        it('should return error if bad response', function (done) {
+            http_response.data = 'error';
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            csclient.getHash(MOCK_CREDENTIALS, function (err, hash) {
+                should.exist(err);
+                should.not.exist(hash);
+                done();
+            });
         });
         it('should return error "Copayer hash missing"', function (done) {
             http_response.data = {};
@@ -177,6 +197,7 @@ describe('CSClient', function () {
         });
         it('should return error', function (done) {
             http_response.data = null;
+            http_response.status = 500;
             creation_opts.httpRequest = sinon.stub().returns(errorHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
             csclient.getHash(MOCK_CREDENTIALS, function (err, hash) {
@@ -188,7 +209,7 @@ describe('CSClient', function () {
     });
 
     describe('.joinWallet', function () {
-        it('should return error with null argument', function () {
+        it('should return error with null argument', function (done) {
             var csclient = new CSClient(creation_opts);
             csclient.joinWallet(null, function (err, hash) {
                 should.exist(err);
@@ -196,11 +217,13 @@ describe('CSClient', function () {
                 done();
             });
         });
-        _.forEach(MOCK_CREDENTIALS, function (v, f_name) {
+        var MOCK_CREDENTIALS2 = _.clone(MOCK_CREDENTIALS);
+        MOCK_CREDENTIALS2.walletPrivKey = MOCK_WALLETPRIVKEY;
+        _.forEach(MOCK_CREDENTIALS2, function (v, f_name) {
             it('should return error with missing credential field ' + f_name, function (done) {
-                var credentials = _.clone(MOCK_CREDENTIALS);
-                delete credentials[f_name];
                 var csclient = new CSClient(creation_opts);
+                var credentials = _.clone(MOCK_CREDENTIALS2);
+                delete credentials[f_name];
                 csclient.joinWallet(credentials, function (err, data) {
                     should.exist(err);
                     should.not.exist(data);
@@ -212,19 +235,68 @@ describe('CSClient', function () {
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
             sinon.stub(csclient, 'getHash').yields(new Error());
-            csclient.joinWallet(credentials, function (err, data) {
+            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
                 should.exist(err);
                 should.not.exist(data);
                 done();
             });
         });
-        it('should call httpRequest with correct params')
-        it('should complete successfully')
-        it('should return error if http error')
+        it('should call httpRequest with correct params', function (done) {
+            var expected = {
+                data: {
+                    copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
+                    walletPubKey: MOCK_WALLETPUBKEY,
+                    sharedEncryptingKey: MOCK_CREDENTIALS2.sharedEncryptingKey
+                },
+                headers: {
+                    'x-client-version': 'CSClient',
+                    'x-identity': MOCK_CREDENTIALS2.copayerId,
+                },
+                method: 'POST',
+                url: MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId
+            };
+
+            var reqStub = creation_opts.httpRequest = sinon.expectation.create()
+                .once()
+                .returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, hash) {
+                reqStub.verify();
+                var callArg = reqStub.getCall(0).args[0];
+                callArg.should.containSubset(expected);
+                signatureShouldBeOk(callArg, expected);
+                done();
+            });
+        });
+        it('should complete successfully', function (done) {
+            //http_response.data = {};
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
+                should.not.exist(err);
+                should.exist(data);
+                data.should.equal(http_response.data);
+                done();
+            });
+        });
+        it('should return error if http error', function (done) {
+            http_response.data = null;
+            http_response.status = 500;
+            creation_opts.httpRequest = sinon.stub().returns(errorHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, hash) {
+                should.exist(err);
+                should.not.exist(hash);
+                done();
+            });
+        });
     });
 
     describe('.getSpendingLimit', function () {
-        it('should return error with null argument', function () {
+        it('should return error with null argument', function (done) {
             var csclient = new CSClient(creation_opts);
             csclient.getSpendingLimit(null, function (err, hash) {
                 should.exist(err);
@@ -244,19 +316,27 @@ describe('CSClient', function () {
                 });
             });
         });
-        it('should return error on getHash() error', function (done) {
-            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            sinon.stub(csclient, 'getHash').yields(new Error());
-            csclient.getSpendingLimit(credentials, function (err, data) {
-                should.exist(err);
-                should.not.exist(data);
-                done();
-            });
+        it('should call httpRequest with correct params', function (done) {
+            throw new Error('not implemented yet');
         });
-        it('should call httpRequest with correct params')
-        it('should complete successfully')
-        it('should return error if http error')
+        it('should complete successfully', function (done) {
+            throw new Error('not implemented yet');
+        });
+        it('should return error if http error', function (done) {
+            throw new Error('not implemented yet');
+        });
+    });
+
+    describe('.requestSpendingLimit', function () {
+
+    });
+
+    describe('.confirmSpendingLimit', function () {
+
+    });
+
+    describe('.initNotifications', function () {
+
     });
 
 });
