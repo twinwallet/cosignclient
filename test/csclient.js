@@ -333,11 +333,85 @@ describe('CSClient', function () {
     });
 
     describe('.requestSpendingLimit', function () {
+        var MOCK_HTTP_RESPONSE = {result: 'OK'};
 
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.requestSpendingLimit(null, 100, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.requestSpendingLimit(credentials, 100, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            testHttpRequestCall('PUT', url, {spendingLimit: 100}, done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            });
+        });
+        it('should return correct data', function (done) {
+            testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            });
+        });
+        it('should return error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            });
+        });
     });
 
     describe('.confirmSpendingLimit', function () {
+        var MOCK_HTTP_RESPONSE = {result: 'OK'};
 
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.confirmSpendingLimit(null, 100, true, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.confirmSpendingLimit(credentials, 100, true, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var exp_data = {
+                spendingLimit: 100,
+                status: 'confirm'
+            };
+            testHttpRequestCall('PATCH', url, exp_data, done, function(csclient, callback) {
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+            });
+        });
+        it('should return correct data', function (done) {
+            testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+            });
+        });
+        it('should return error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+            });
+        });
     });
 
     describe('.initNotifications', function () {
