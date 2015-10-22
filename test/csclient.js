@@ -48,19 +48,6 @@ function errorHttpHelper(response) {
     }
 }
 
-var ERR = new Error('err');
-function testErr(done, msg) {
-    return function (err, data) {
-        should.exist(err);
-        if (!msg)
-            err.should.equal(ERR);
-        else
-            err.message.should.equal(msg);
-        should.not.exist(data);
-        done();
-    };
-}
-
 function signatureShouldBeOk(callArg, expected) {
     var msg = expected.method.toLocaleLowerCase() + '|' + expected.url + '|' + JSON.stringify(expected.data || {});
     var signOk = walletUtils.verifyMessage(msg, callArg.headers['x-signature'], MOCK_REQPUBKEY);
@@ -88,22 +75,34 @@ describe('CSClient', function () {
         http_response = _.clone(MOCK_HTTP_RESPONSE);
     });
 
-    function testNullArgument(method, done) {
+    /**
+     * Usage example:
+     * testReturnedError(done, function(csclient, callback) {
+     *    csclient.getHash(null, callback);
+     * });
+     * @param done
+     * @param {function(csclient, callback)} cb
+     */
+    function testReturnedError(done, cb) {
         var csclient = new CSClient(creation_opts);
-        csclient[method](null, function (err, data) {
+        cb(csclient, function (err, data) {
             should.exist(err);
             should.not.exist(data);
             done();
         });
     }
 
-    function it_testsIncompleteCredentials(method, completeCredentials) {
+    /**
+     * @param {Credentials} completeCredentials
+     * @param {function(csclient, credentials, callback)} cb
+     */
+    function it_testsIncompleteCredentials(completeCredentials, cb) {
         _.forEach(completeCredentials, function (v, f_name) {
             it('should return error with missing credential field ' + f_name, function (done) {
                 var csclient = new CSClient(creation_opts);
                 var credentials = _.clone(completeCredentials);
                 delete credentials[f_name];
-                csclient[method](credentials, function (err, data) {
+                cb(csclient, credentials, function (err, data) {
                     should.exist(err);
                     should.not.exist(data);
                     done();
@@ -112,48 +111,66 @@ describe('CSClient', function () {
         });
     }
 
-    function testTerminationWithoutError(method, httpResponseData, done) {
+    function testTerminationWithoutError(httpResponseData, done, cb) {
         http_response.data = _.clone(httpResponseData);
         creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
         var csclient = new CSClient(creation_opts);
-        csclient[method](MOCK_CREDENTIALS, function (err, hash) {
+        cb(csclient, function (err, hash) {
             should.not.exist(err);
             done();
         });
     }
 
-    function testRetunedData(method, httpResponseData, expectedReturnedData, done) {
+    function testHttpRequestCall(exp_method, exp_url, exp_data, done, cb) {
+        var expected = {
+            headers: {
+                'x-client-version': 'CSClient',
+                'x-identity': MOCK_CREDENTIALS.copayerId,
+            },
+            method: exp_method,
+            url: exp_url,
+            data: exp_data
+        };
+        http_response.data = _.clone(MOCK_HTTP_RESPONSE);
+        var reqStub = creation_opts.httpRequest = sinon.expectation.create()
+            .once()
+            .returns(successHttpHelper(http_response));
+        var csclient = new CSClient(creation_opts);
+        cb(csclient, function(err, data) {
+        //csclient.getSpendingLimit(MOCK_CREDENTIALS, function (err, data) {
+            reqStub.verify();
+            var callArg = reqStub.getCall(0).args[0];
+            callArg.should.containSubset(expected);
+            if (typeof exp_data === 'undefined')
+                should.not.exist(callArg.data);
+            signatureShouldBeOk(callArg, expected);
+            done();
+        });
+    }
+
+    function testRetunedData(httpResponseData, expectedReturnedData, done, cb) {
         http_response.data = _.clone(httpResponseData);
         creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
         var csclient = new CSClient(creation_opts);
-        csclient[method](MOCK_CREDENTIALS, function (err, data) {
+        cb(csclient, function (err, data) {
             should.exist(data);
             data.should.deep.equal(expectedReturnedData);
             done();
         });
     }
 
-    function testBadHttpResponse(method, done) {
+    function testBadHttpResponse(done, cb) {
         http_response.data = 'error';
         creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
         var csclient = new CSClient(creation_opts);
-        csclient[method](MOCK_CREDENTIALS, function (err, data) {
-            should.exist(err);
-            should.not.exist(data);
-            done();
-        });
+        testReturnedError(done, cb);
     }
 
-    function testHttpError(method, done) {
+    function testHttpError(done, cb) {
         http_response.data = null;
         http_response.status = 500;
         creation_opts.httpRequest = sinon.stub().returns(errorHttpHelper(http_response));
-        var csclient = new CSClient(creation_opts);
-        csclient[method](MOCK_CREDENTIALS, function (err, hash) {
-            should.exist(err);
-            should.not.exist(hash);
-            done();
-        });
+        testReturnedError(done, cb);
     }
 
     describe('constructor', function () {
@@ -181,40 +198,34 @@ describe('CSClient', function () {
 
     describe('.getHash', function () {
         it('should return error with null argument', function (done) {
-            testNullArgument('getHash', done);
+            testReturnedError(done, function (csclient, callback) {
+                csclient.getHash(null, callback);
+            });
         });
-        it_testsIncompleteCredentials('getHash', MOCK_CREDENTIALS);
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS, function(csclient, credentials, callback) {
+            csclient.getHash(credentials, callback);
+        });
         it('should terminate', function (done) {
-            testTerminationWithoutError('getHash', {copayerHash: MOCK_COPAYERHASH}, done);
+            testTerminationWithoutError({copayerHash: MOCK_COPAYERHASH}, done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should call httpRequest with correct params', function (done) {
-            var expected = {
-                data: {network: MOCK_CREDENTIALS.network},
-                headers: {
-                    'x-client-version': 'CSClient',
-                    'x-identity': MOCK_CREDENTIALS.copayerId,
-                },
-                method: 'POST',
-                url: MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/setup'
-            };
-
-            var reqStub = creation_opts.httpRequest = sinon.expectation.create()
-                .once()
-                .returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            csclient.getHash(MOCK_CREDENTIALS, function (err, hash) {
-                reqStub.verify();
-                var callArg = reqStub.getCall(0).args[0];
-                callArg.should.containSubset(expected);
-                signatureShouldBeOk(callArg, expected);
-                done();
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/setup';
+            var exp_data = {network: MOCK_CREDENTIALS.network};
+            testHttpRequestCall('POST', url, exp_data, done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
             });
         });
         it('should return correct hash', function (done) {
-            testRetunedData('getHash', {copayerHash: MOCK_COPAYERHASH}, MOCK_COPAYERHASH, done);
+            testRetunedData({copayerHash: MOCK_COPAYERHASH}, MOCK_COPAYERHASH, done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should return error if bad response', function (done) {
-            testBadHttpResponse('getHash', done);
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should return error "Copayer hash missing"', function (done) {
             http_response.data = {};
@@ -228,17 +239,24 @@ describe('CSClient', function () {
             });
         });
         it('should return error', function (done) {
-            testHttpError('getHash', done);
+            testHttpError(done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
+            });
         });
     });
 
     describe('.joinWallet', function () {
-        it('should return error with null argument', function (done) {
-            testNullArgument('joinWallet', done);
-        });
         var MOCK_CREDENTIALS2 = _.clone(MOCK_CREDENTIALS);
         MOCK_CREDENTIALS2.walletPrivKey = MOCK_WALLETPRIVKEY;
-        it_testsIncompleteCredentials('joinWallet', MOCK_CREDENTIALS2);
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.joinWallet(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS2, function(csclient, credentials, callback) {
+            csclient.joinWallet(credentials, callback);
+        });
         it('should return error on getHash() error', function (done) {
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
@@ -250,55 +268,27 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var expected = {
-                data: {
-                    copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
-                    walletPubKey: MOCK_WALLETPUBKEY,
-                    sharedEncryptingKey: MOCK_CREDENTIALS2.sharedEncryptingKey
-                },
-                headers: {
-                    'x-client-version': 'CSClient',
-                    'x-identity': MOCK_CREDENTIALS2.copayerId,
-                },
-                method: 'POST',
-                url: MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId
+            var exp_data = {
+                copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
+                walletPubKey: MOCK_WALLETPUBKEY,
+                sharedEncryptingKey: MOCK_CREDENTIALS2.sharedEncryptingKey
             };
-
-            var reqStub = creation_opts.httpRequest = sinon.expectation.create()
-                .once()
-                .returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
-            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, hash) {
-                reqStub.verify();
-                var callArg = reqStub.getCall(0).args[0];
-                callArg.should.containSubset(expected);
-                signatureShouldBeOk(callArg, expected);
-                done();
+            testHttpRequestCall('POST', url, exp_data, done, function(csclient, callback) {
+                sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+                csclient.joinWallet(MOCK_CREDENTIALS2, callback);
             });
         });
         it('should complete successfully', function (done) {
-            //http_response.data = {};
-            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
-            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
-                should.not.exist(err);
-                should.exist(data);
-                data.should.equal(http_response.data);
-                done();
+            testRetunedData({}, {}, done, function(csclient, callback) {
+                sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+                csclient.joinWallet(MOCK_CREDENTIALS2, callback);
             });
         });
         it('should return error if http error', function (done) {
-            http_response.data = null;
-            http_response.status = 500;
-            creation_opts.httpRequest = sinon.stub().returns(errorHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
-            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, hash) {
-                should.exist(err);
-                should.not.exist(hash);
-                done();
+            testHttpError(done, function(csclient, callback) {
+                sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
+                csclient.joinWallet(MOCK_CREDENTIALS, callback);
             });
         });
     });
@@ -307,43 +297,38 @@ describe('CSClient', function () {
         var MOCK_HTTP_RESPONSE = {spendingLimit: 1000, consumed: 222, pendingLimit: 2000, pendingLimitApproved: false};
 
         it('should return error with null argument', function (done) {
-            testNullArgument('getSpendingLimit', done);
+            testReturnedError(done, function (csclient, callback) {
+                csclient.getSpendingLimit(null, callback);
+            });
         });
-        it_testsIncompleteCredentials('getSpendingLimit', MOCK_CREDENTIALS);
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.getSpendingLimit(credentials, callback);
+        });
         it('should terminate without error', function (done) {
-            testTerminationWithoutError('getSpendingLimit', MOCK_HTTP_RESPONSE, done);
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should call httpRequest with correct params', function (done) {
-            var expected = {
-                headers: {
-                    'x-client-version': 'CSClient',
-                    'x-identity': MOCK_CREDENTIALS.copayerId,
-                },
-                method: 'GET',
-                url: MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
-            };
-            http_response.data = _.clone(MOCK_HTTP_RESPONSE);
-            var reqStub = creation_opts.httpRequest = sinon.expectation.create()
-                .once()
-                .returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            csclient.getSpendingLimit(MOCK_CREDENTIALS, function (err, data) {
-                reqStub.verify();
-                var callArg = reqStub.getCall(0).args[0];
-                callArg.should.containSubset(expected);
-                should.not.exist(callArg.data);
-                signatureShouldBeOk(callArg, expected);
-                done();
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            testHttpRequestCall('GET', url, undefined, done, function(csclient, callback) {
+                csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
             });
         });
         it('should return correct data', function (done) {
-            testRetunedData('getSpendingLimit', MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done);
+            testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should return error if bad response', function (done) {
-            testBadHttpResponse('getSpendingLimit', done);
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
+            });
         });
         it('should return error', function (done) {
-            testHttpError('getSpendingLimit', done);
+            testHttpError(done, function(csclient, callback) {
+                csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
+            });
         });
     });
 
