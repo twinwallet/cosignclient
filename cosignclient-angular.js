@@ -5,7 +5,7 @@ var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
 
-cscModule.constant('MODULE_VERSION', '0.0.1');
+cscModule.constant('MODULE_VERSION', '0.1.0');
 
 /**
  * Service factory.
