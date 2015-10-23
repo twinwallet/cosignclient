@@ -9,7 +9,7 @@ var chaiSubset = require('chai-subset');
 chai.use(chaiSubset);
 var walletUtils = require('bitcore-wallet-utils');
 var Bitcore = walletUtils.Bitcore;
-
+var io = require('socket.io-client');
 var CSClient = require('../lib/csclient');
 
 // request key is the derivation m/1'/0 of tprv8ZgxMBicQKsPfB68j6QH2jhxju935kx7eXqg28aMBD49wd7Crrqwv665r7ikjeMH8N1jb25J45LhTm7FwhqNRHp7Ddy6CcVfYpHW73zAdvP
@@ -415,6 +415,103 @@ describe('CSClient', function () {
     });
 
     describe('.initNotifications', function () {
+        var socket = {
+            once: sinon.spy(),
+            emit: sinon.spy()
+        };
+        describe('basic', function () {
+            it('should return error with null argument', function (done) {
+                testReturnedError(done, function (csclient, callback) {
+                    csclient.initNotifications(null, callback);
+                });
+            });
+            it_testsIncompleteCredentials(MOCK_CREDENTIALS, function (csclient, credentials, callback) {
+                csclient.initNotifications(credentials, callback);
+            });
+            it('should open socket', function () {
+                var mock = sinon.mock(io);
+                mock.expects('connect')
+                    .once()
+                    .withExactArgs(
+                        "http://localhost:1234",
+                        {
+                            'force new connection': true,
+                            'reconnection': true,
+                            'reconnectionDelay': 5000,
+                            'secure': true,
+                        })
+                    .returns(socket);
+                var csclient = new CSClient(creation_opts);
+                csclient.initNotifications(MOCK_CREDENTIALS, sinon.spy());
+                mock.verify();
+            });
+        });
+        describe('protocol implementation', function() {
+            var csclient;
+            var connectStub;
+            before(function () {
+                connectStub = sinon.stub(io, 'connect').returns(socket);
+            });
+            after(function () {
+                connectStub.restore();
+            });
+            beforeEach(function() {
+                socket.once = sinon.spy();
+                socket.emit = sinon.spy();
+                csclient = new CSClient(creation_opts);
+            });
+            var events = ['authorized', 'unauthorized', 'challenge'];
+            events.forEach(function (event) {
+                it('should listen "' + event + '" event', function () {
+                    csclient.initNotifications(MOCK_CREDENTIALS, sinon.spy());
+                    expect(socket.once.withArgs(event).calledOnce);
+                });
+            });
+            it('should emit "authorize" event', function(done) {
+                socket.once = sinon.stub();
+                socket.once.withArgs('challenge').yieldsAsync('8adc3675-ca8a-4709-bdd2-b41bd8e4e879');
+                socket.emit = function(event, data) {
+                    event.should.equals('authorize');
+                    data.should.deep.equals({
+                        copayerId: MOCK_CREDENTIALS.copayerId,
+                        message: '8adc3675-ca8a-4709-bdd2-b41bd8e4e879',
+                        signature: '304402202049439cfc9559fba57e5be916679c6e8a3b4f825bd14ec288e4f02d7af4faa402204893a083a3ab416afe8ba63c96905dccb3e334e86965510761c81c1a9b0ec1ea'
+                    });
+                    done();
+                };
+                csclient.initNotifications(MOCK_CREDENTIALS, sinon.spy());
+            });
+            it('should return error on "unauthorized" event', function (done) {
+                socket.once = sinon.stub();
+                socket.once.withArgs('challenge').yieldsAsync('8adc3675-ca8a-4709-bdd2-b41bd8e4e879');
+                socket.emit = function (event, data) {
+                    process.nextTick(function () {
+                        socket.once.withArgs('unauthorized').yield();
+                    });
+                };
+                csclient.initNotifications(MOCK_CREDENTIALS, function (err, socket) {
+                    should.exist(err);
+                    should.not.exist(socket);
+                    done();
+                });
+
+            });
+            it('should return socket on "authorized" event', function (done) {
+                socket.once = sinon.stub();
+                socket.once.withArgs('challenge').yieldsAsync('8adc3675-ca8a-4709-bdd2-b41bd8e4e879');
+                socket.emit = function (event, data) {
+                    process.nextTick(function () {
+                        socket.once.withArgs('authorized').yield();
+                    });
+                };
+                csclient.initNotifications(MOCK_CREDENTIALS, function (err, socket) {
+                    should.not.exist(err);
+                    should.exist(socket);
+                    socket.should.equal(socket);
+                    done();
+                });
+            });
+        });
 
     });
 

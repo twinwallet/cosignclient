@@ -53,8 +53,8 @@ var io = require('socket.io-client');
  * @constructor
  */
 function CSClient(opts) {
-    //TODO check requirements
-    opts = opts || {};
+    if (!opts || !opts.baseUrl || !opts.httpRequest || !opts.bwutils)
+        throw new Error('missing parameter');
 
     var urlobj = url.parse(opts.baseUrl);
     this.baseHost = urlobj.host;
@@ -64,7 +64,7 @@ function CSClient(opts) {
 }
 
 CSClient.prototype._signRequest = function (credentials, params) {
-    var message = [params.method.toLowerCase(), params.url, JSON.stringify(params.data || {})].join('|');
+   var message = [params.method.toLowerCase(), params.url, JSON.stringify(params.data || {})].join('|');
     var signature = this.bwutils.signMessage(message, credentials.requestPrivKey);
     params.headers = params.headers || {};
     params.headers['x-identity'] = credentials.copayerId;
@@ -72,7 +72,12 @@ CSClient.prototype._signRequest = function (credentials, params) {
     params.headers['x-client-version'] = 'CSClient';
 };
 
+function invalidCredentials(credentials, cb) {
+    return !credentials || !credentials.requestPrivKey || !credentials.copayerId ||
+        !credentials.walletId || !credentials.network || !credentials.sharedEncryptingKey
+}
 CSClient.prototype.getHash = function (credentials, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     var self = this;
     var params = {
         method: 'POST',
@@ -87,7 +92,7 @@ CSClient.prototype.getHash = function (credentials, cb) {
         .then(function (response) {
             if (!!response.data.copayerHash) {
                 //TODO returned data validation
-                cb(null, data.copayerHash)
+                cb(null, response.data.copayerHash)
             } else {
                 cb(new Error('Copayer hash missing: ' + response.data));
             }
@@ -97,6 +102,7 @@ CSClient.prototype.getHash = function (credentials, cb) {
 };
 
 CSClient.prototype.joinWallet = function (credentials, cb) {
+    if (invalidCredentials(credentials) || !credentials.walletPrivKey) return cb(new Error('incomplete credentials'));
     var self = this;
     //TODO controllare se manca solo il server al join
     var walletId = credentials.walletId;
@@ -130,6 +136,7 @@ CSClient.prototype.joinWallet = function (credentials, cb) {
 };
 
 CSClient.prototype.getSpendingLimit = function (credentials, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     var walletId = credentials.walletId;
     var getParams = {
         method: 'GET',
@@ -145,15 +152,21 @@ CSClient.prototype.getSpendingLimit = function (credentials, cb) {
         //transformRequest: [function(value) { return value; }],
     };
     this._signRequest(credentials, getParams);
-    self.httpRequest(getParams)
+    this.httpRequest(getParams)
         .then(function successCB(response) {
-            cb(null, response.data);
+            //TODO full data validation
+            if (_.isNumber(response.data.spendingLimit)) {
+                cb(null, response.data)
+            } else {
+                cb(new Error('Invalid server reply: ' + response.data));
+            }
         }, function errorCB(response) {
             cb(response);
         });
 };
 
 CSClient.prototype.requestSpendingLimit = function (credentials, limit, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     var walletId = credentials.walletId;
     var params = {
         method: 'PUT',
@@ -163,7 +176,11 @@ CSClient.prototype.requestSpendingLimit = function (credentials, limit, cb) {
     this._signRequest(credentials, params);
     this.httpRequest(params)
         .then(function successCB(response) {
-            cb(null, response.data);
+            if (_.isString(response.data.result)) {
+                cb(null, response.data)
+            } else {
+                cb(new Error('Invalid server reply: ' + response.data));
+            }
         }, function errorCB(response) {
             cb(response);
         });
@@ -175,6 +192,7 @@ CSClient.prototype.requestSpendingLimit = function (credentials, limit, cb) {
  * @param cb
  */
 CSClient.prototype.confirmSpendingLimit = function (credentials, limit, confirm, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     var walletId = credentials.walletId;
     var params = {
         method: 'PATCH',
@@ -187,11 +205,10 @@ CSClient.prototype.confirmSpendingLimit = function (credentials, limit, confirm,
     this._signRequest(credentials, params);
     this.httpRequest(params)
         .then(function successCB(response) {
-            var result = response.data.result;
-            if (result === 'invalid') {
-                cb(new Error('Invalid request'));
+            if (_.isString(response.data.result)) {
+                cb(null, response.data)
             } else {
-                cb(null);
+                cb(new Error('Invalid server reply: ' + response.data));
             }
         }, function errorCB(response) {
             cb(response);
@@ -199,10 +216,8 @@ CSClient.prototype.confirmSpendingLimit = function (credentials, limit, confirm,
 };
 
 CSClient.prototype.initNotifications = function (credentials, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     var self = this;
-
-    var walletId = credentials.walletId;
-    if (!walletId) return cb(new Error('Invalid credentials'));
 
     var socket = io.connect('http://' + self.baseHost, {
         'force new connection': true,
@@ -220,30 +235,13 @@ CSClient.prototype.initNotifications = function (credentials, cb) {
         return cb(null, socket);
     });
 
-    //socket.on('notification', function (data) {
-    //    if (data.walletId === walletId) {
-    //        var ev = 'notificationXT/' + data.type;
-    //        $rootScope.$emit(ev, data);
-    //    } else {
-    //        // TODO
-    //    }
-    //});
-    //
-    //socket.on('reconnecting', function () {
-    //    //self.emit('reconnecting');
-    //});
-    //
-    //socket.on('reconnect', function () {
-    //    //self.emit('reconnect');
-    //});
-
     socket.once('challenge', function (nonce) {
         //TODO $.checkArgument(nonce);
 
         var auth = {
             copayerId: credentials.copayerId,
             message: nonce,
-            signature: profileService.getUtils().signMessage(nonce, credentials.requestPrivKey),
+            signature: self.bwutils.signMessage(nonce, credentials.requestPrivKey),
         };
         socket.emit('authorize', auth);
     });
