@@ -7,8 +7,10 @@ var should = chai.should();
 var expect = chai.expect;
 var chaiSubset = require('chai-subset');
 chai.use(chaiSubset);
-var walletUtils = require('bitcore-wallet-utils');
+var bwclient = require('bitcore-wallet-client');
+var walletUtils = bwclient.Utils;
 var Bitcore = walletUtils.Bitcore;
+var sjcl = bwclient.sjcl;
 var io = require('socket.io-client');
 var CSClient = require('../lib/csclient');
 
@@ -59,6 +61,7 @@ describe('CSClient', function () {
         baseUrl: 'http://localhost:1234/cosign',
         httpRequest: MOCK_REQUEST_NULL,
         bwutils: walletUtils,
+        sjcl: sjcl
     };
     var creation_opts;
     var MOCK_HTTP_RESPONSE = {
