@@ -594,7 +594,50 @@ describe('CSClient', function () {
     });
 
     describe('.cleanupBackupRequest', function () {
+        var MOCK_HTTP_RESPONSE = {
+            result: 'OK'
+        };
 
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.cleanupBackupRequest(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.cleanupBackupRequest(credentials, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.cleanupBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
+            testHttpRequestCall('DELETE', url, undefined, done, function(csclient, callback) {
+                csclient.cleanupBackupRequest(MOCK_CREDENTIALS, function(err, reqId) {
+                    callback(err, reqId);
+                });
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.cleanupBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if result is not OK', function (done) {
+            http_response.data = {
+                result: 'no backup'
+            };
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            testReturnedError(done, function (csclient, callback) {
+                csclient.cleanupBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.cleanupBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
     });
 
     describe('.setBackupRequestData', function () {
