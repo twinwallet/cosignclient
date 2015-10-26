@@ -165,7 +165,6 @@ describe('CSClient', function () {
     function testBadHttpResponse(done, cb) {
         http_response.data = 'error';
         creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
-        var csclient = new CSClient(creation_opts);
         testReturnedError(done, cb);
     }
 
@@ -515,8 +514,91 @@ describe('CSClient', function () {
                 });
             });
         });
+    });
+
+    describe('.createBackupRequest', function () {
+        var MOCK_HTTP_RESPONSE = {
+            result: 'OK'
+        };
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.createBackupRequest(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.createBackupRequest(credentials, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.createBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
+            var exp_data = {};
+            var startTime = Date.now();
+            testHttpRequestCall('POST', url, exp_data, done, function(csclient, callback) {
+                csclient.createBackupRequest(MOCK_CREDENTIALS, function(err, reqId) {
+                    var callArg = creation_opts.httpRequest.getCall(0).args[0];
+                    callArg.data.req_id.should.be.a('string');
+                    callArg.data.req_timestamp.should.be.within(startTime, Date.now());
+                    // update exp_data for signature validation
+                    exp_data.req_id = callArg.data.req_id;
+                    exp_data.req_timestamp = callArg.data.req_timestamp;
+                    callback(err, reqId);
+                });
+            });
+        });
+        it('should return request id', function (done) {
+            http_response.data = MOCK_HTTP_RESPONSE;
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            csclient.createBackupRequest(MOCK_CREDENTIALS, function (err, data) {
+                should.exist(data);
+                data.should.be.a('string');
+                data.should.equal(creation_opts.httpRequest.getCall(0).args[0].data.req_id);
+                done();
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.createBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if result is not OK', function (done) {
+            http_response.data = {
+                result: 'backup in progress'
+            };
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            testReturnedError(done, function (csclient, callback) {
+                csclient.createBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.createBackupRequest(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
+    describe('.getBackupRequest', function () {
+        var MOCK_HTTP_RESPONSE = {
+            req_id: '--id-placeholder--',
+            req_copayer: MOCK_COPAYERHASH,
+            req_timestamp: 1111111,
+            req_signature: '--signature-placeholder--',
+            partial_data: '--partial-data-placeholder--'
+        };
 
     });
 
+    describe('.cleanupBackupRequest', function () {
+
+    });
+
+    describe('.setBackupRequestData', function () {
+
+    });
 });
 
