@@ -638,7 +638,7 @@ describe('CSClient', function () {
         });
     });
 
-    describe('.setBackupRequestData', function () {
+    describe('.sendBackupRequestData', function () {
         var MOCK_PASSWORD = 'Passw0rd';
         var MOCK_HTTP_RESPONSE = {
             result: 'OK'
@@ -650,58 +650,42 @@ describe('CSClient', function () {
             reqSignature: '--signature-placeholder--',
         };
 
-        it('should return error with null argument', function (done) {
+        it('should return error with null credentials', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                csclient.setBackupRequestData(null, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(null, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+            });
+        });
+        it('should return error with null password', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, null, MOCK_BACKUPREQUEST, callback);
+            });
+        });
+        it('should return error with null backupRequest', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, null, callback);
             });
         });
         it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
-            csclient.setBackupRequestData(credentials, MOCK_PASSWORD, callback);
+            csclient.sendBackupRequestData(credentials, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
         });
         it('should return error with encrypted credentials', function (done) {
             testReturnedError(done, function (csclient, callback) {
                 var credentials = Credentials.fromObj(MOCK_CREDENTIALS2);
                 credentials.setPrivateKeyEncryption('testPassw0rd');
                 credentials.lock();
-                csclient.setBackupRequestData(credentials, MOCK_PASSWORD, callback);
-            });
-        });
-        it('should call getBackupRequest', function (done) {
-            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
-            var csclient = new CSClient(creation_opts);
-            var mock = sinon.mock(csclient).expects('getBackupRequest')
-                .once()
-                .withArgs(MOCK_CREDENTIALS2).
-                yields(null, MOCK_BACKUPREQUEST);
-            csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, function (err, data) {
-                mock.verify();
-                done();
-            });
-        });
-        it('should return error on getBackupRequest error', function (done) {
-            testReturnedError(done, function (csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(new Error());
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
-            });
-        });
-        it('should return error if no pending backup request', function (done) {
-            testReturnedError(done, function (csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(null, null);
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(credentials, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if pending backup request was created from same copayer', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(null, MOCK_BACKUPREQUEST);
                 var credentials = Credentials.fromObj(MOCK_CREDENTIALS2);
                 credentials.copayerId = MOCK_BACKUPREQUEST.req_copayer;
-                csclient.setBackupRequestData(credentials, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(credentials, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should terminate without error', function (done) {
             testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(null, MOCK_BACKUPREQUEST);
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should call httpRequest with correct params', function (done) {
@@ -711,15 +695,13 @@ describe('CSClient', function () {
                 partialData: '--partila-data-placeholder--'
             };
             testHttpRequestCall('PATCH', url, data, MOCK_CREDENTIALS2, done, function(csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(null, MOCK_BACKUPREQUEST);
                 sinon.stub(csclient, '_prepareBackupPartialData').returns(data.partialData);
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if bad http response', function (done) {
             testBadHttpResponse(done, function(csclient, callback) {
-                sinon.stub(csclient, 'getBackupRequest').yields(null, MOCK_BACKUPREQUEST);
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if result is not OK', function (done) {
@@ -728,12 +710,12 @@ describe('CSClient', function () {
             };
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             testReturnedError(done, function (csclient, callback) {
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if http error', function (done) {
             testHttpError(done, function(csclient, callback) {
-                csclient.setBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
     });
@@ -746,6 +728,10 @@ describe('CSClient', function () {
             reqSignature: '--signature-placeholder--',
             partialData: '--partial-data--'
         };
+
+    });
+
+    describe('._prepareBackupPartialData', function () {
 
     });
 
