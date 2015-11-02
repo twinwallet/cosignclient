@@ -21,7 +21,7 @@ var MOCK_REQPUBKEY = (new Bitcore.PrivateKey(MOCK_REQPRIVKEY)).toPublicKey().toS
 var MOCK_WALLETPRIVKEY = 'f57ff6cb88b8b7777250828017de1dd69ee29ad56eeb492929ef522e0cc17cea';
 var MOCK_WALLETPUBKEY = (new Bitcore.PrivateKey(MOCK_WALLETPRIVKEY)).toPublicKey().toString();
 var MOCK_REQUEST_NULL = function() { return { then: function(s,e) {} } };
-var MOCK_SHAREDENCRIPTINGKEY = '-shared-encripting-key-placeholder-';
+var MOCK_SHAREDENCRIPTINGKEY = 'hiL2zY/82aRwOx7Y5UIYwQ==';  // derived from key b2a724fae2a1e09e79d49cc51bfb9d8035958e241ec820715f4b0df45fb335a7
 var MOCK_COPAYERHASH = '-copayer-hash-placeholder-';
 var MOCK_CREDENTIALS = {
     walletId: '7c9a7df9-990c-4de6-8f49-572ff0938216',
@@ -717,6 +717,78 @@ describe('CSClient', function () {
             testHttpError(done, function(csclient, callback) {
                 csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
+        });
+    });
+
+    describe('._prepareBackupPartialData', function () {
+        var MOCK_BACKUPREQUEST = {
+            reqId: '--id-placeholder--',
+            reqCopayer: MOCK_COPAYERHASH,
+            reqTimestamp: 1111111,
+            reqSignature: '--signature-placeholder--',
+            partialData: ''
+        };
+        var csclient;
+        beforeEach(function () {
+            csclient = new CSClient(creation_opts);
+        });
+        it('should return string', function () {
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            encData.should.be.a('string');
+        });
+        it('should return encrypted data using sharedEncryptingKey', function () {
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            expect(function () {
+                walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey);
+            }).to.not.throw();
+        });
+        it('shoud return correct data', function () {
+            var expected = {
+                hX: 'XwjppXsb4+eQPJzgvthXXJRHXmTsvN+8bm7UqNKmcf8=',
+                req_data: MOCK_BACKUPREQUEST
+            };
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            decData.should.containSubset(expected);
+            Object.keys(decData).should.have.length(4);
+            should.exist(decData.data_signature);
+            should.exist(decData.encryptedKey);
+        });
+        it('xPrivKey shoud be encrypted with password', function () {
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            var decKey;
+            expect(function () {
+                decKey = sjcl.decrypt('WeakPassw0rd', decData.encryptedKey);
+            }).to.not.throw();
+            decKey.should.equal(MOCK_CREDENTIALS2.xPrivKey);
+        });
+        it('shoud sign data', function () {
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            var test = decData.data_signature;
+            delete decData.data_signature;
+            walletUtils.verifyMessage(JSON.stringify(decData), test, MOCK_CREDENTIALS2.requestPubKey).should.be.true;
+        });
+    });
+
+    describe('.buildBackupData', function () {
+        var MOCK_BACKUPREQUEST = {
+            reqId: '--id-placeholder--',
+            reqCopayer: MOCK_COPAYERHASH,
+            reqTimestamp: 1111111,
+            reqSignature: '--signature-placeholder--',
+            partialData: ''
+        };
+        var MOCK_FULLBACKUPDATA = {
+            encPrivKey1: '',
+            encPrivKey2: '',
+            encPubKey3: ''
+        };
+        it('should return backup data', function () {
+            var csclient = new CSClient(creation_opts);
+            var data = csclient.buildBackupData(MOCK_CREDENTIALS2, MOCK_BACKUPREQUEST);
+            data.should.equal(MOCK_FULLBACKUPDATA);
         });
     });
 
