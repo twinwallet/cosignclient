@@ -32,6 +32,8 @@ var MOCK_CREDENTIALS = {
 };
 
 var MOCK_CREDENTIALS2 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPfB68j6QH2jhxju935kx7eXqg28aMBD49wd7Crrqwv665r7ikjeMH8N1jb25J45LhTm7FwhqNRHp7Ddy6CcVfYpHW73zAdvP');
+var MOCK_CREDENTIALS3 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPe4EpMwgKFqMmJVqY4tPJdhRzZCx8hm9EaDUAw83Z5YazrVKriSDu1QTkf1GjFaFNB8maXYULooG8WeB2frrxsrEYUWq4hGZ');
+var MOCK_CREDENTIALS4 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPdM28UpEyZoTmYiGjELD2H4WyFQeBxsd2WZYopc5zsdPf2ZZkWbNULfd5aXKvxiNhrvkAxLAoWwBDbWx4CNQaCDAFA3DzK1g');
 MOCK_CREDENTIALS2.addWalletInfo(
     '7c9a7df9-990c-4de6-8f49-572ff0938216',
     '--wallet-name--',
@@ -40,6 +42,18 @@ MOCK_CREDENTIALS2.addWalletInfo(
     MOCK_WALLETPRIVKEY,
     '--copayer-name--'
 );
+MOCK_CREDENTIALS2.addPublicKeyRing([
+    {
+        requestPubKey: MOCK_CREDENTIALS2.requestPubKey,
+        xPubKey: MOCK_CREDENTIALS2.xPubKey
+    }, {
+        requestPubKey: MOCK_CREDENTIALS3.requestPubKey,
+        xPubKey: MOCK_CREDENTIALS3.xPubKey
+    }, {
+        requestPubKey: MOCK_CREDENTIALS4.requestPubKey,
+        xPubKey: MOCK_CREDENTIALS4.xPubKey
+    }
+]);
 
 function successHttpHelper(response) {
     return {
@@ -280,6 +294,19 @@ describe('CSClient', function () {
                 done();
             });
         });
+        it('should call getHash with credentials', function(done) {
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            var mock = sinon.mock(csclient);
+            mock.expects('getHash')
+                .once()
+                .withArgs(MOCK_CREDENTIALS2)
+                .yields(new Error());
+            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
+                mock.verify();
+                done();
+            });
+        })
         it('should call httpRequest with correct params', function (done) {
             var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId
             var exp_data = {
@@ -775,17 +802,18 @@ describe('CSClient', function () {
     describe('.buildBackupData', function () {
         var MOCK_BACKUPREQUEST = {
             reqId: '--id-placeholder--',
-            reqCopayer: MOCK_COPAYERHASH,
+            reqCopayer: MOCK_CREDENTIALS2.copayerId,
             reqTimestamp: 1111111,
             reqSignature: '--signature-placeholder--',
-            partialData: ''
+            partialData: '{"iv":"ms3g+1pSsNfK4KQCRzfcRA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"HqxZsZS/PVNCCcV6j9PLWe1QQlEIVT1fpj5Ai1R66WjsBAlB37B7OT92EiQCVpS001oLHrrtsMgq/5vMoXfoNZ/nbhxhOxItPDB6vpOccAWfDYLXjsXU4vmZ4QxvxcIdXw28r8T2NCGX3ZcCkANdZ4+oXSHC9hMkd3Q4DK4ux2VkRzIBMHWvFkFotDYr+VJKNsuR3s5uui9N2ngRUnaWkxg05D56EiWPL9n4VYnCI9pVhQaEiWk3v+BVg73BcXWG4Co7jXzeHjJGdPTDUGsx5NrL5yfC3DWrZknynmELheSuerKTZIU6/LcrBelJwl3+XkUW5HIBnEw02Y9/YileN2I+wHdFKLujKg/acE+heOOgJK8NJD2MhomiNxBJdox8drZToP3X3U6k8D0K6Kze1NPsD3ywq5EUG4if3+LmGTRbOJ6vFZrzfSGKGDvIx30b6uTDZGn4aEd/M7PAiVAC/PAsJwOhHkiXSyF5Be5xozMv+TrjMe8RD6xdtjYT5pHYfKU65Z8o+bi/ehEBV9NWdHX8d2WTA7ZBgx6QB1aiFeNenJBmp77MKbSVcdNeJoLMGSdbuXuxT1+uAHXBJDiT0h1Hp0/tdtQp7Nd1jk2SIEGSM7fgojbQA9ZsuAD0ZEaM0TnGjJa9EQ6lEUSHbbbv/xd2xdw4mDbNk2dAA+kj24F9hTUrI8oTvs5ZTjqPMV12ouhnPG0oIlX5W+VwqSxFk0CgXbUb2XEp5oLyOaSjAKVOCUSCk8xg5uyPfVYTe85qlE6WXPV27dYF5St3JqDrjYJgAms1n+ug+ijdehMGPdW863qSpnDrgyOVIf1/BLJyP688eH0iVr6A2AEl1R/mI0EQgPJYMnn/cVFsqE8eAZHiguq8uemHGbpROSC4a0z+vwzmjK28vRXhK9+SZhJ8MwN1xVPzAEb4fBbTilGIWtXsIjWdjzfq4Zfs4qnPyiPG1b+W1ypI5wzWeIqe6XZGiqHz"}'
         };
         var MOCK_FULLBACKUPDATA = {
             encPrivKey1: '',
             encPrivKey2: '',
             encPubKey3: ''
         };
-        it('should return backup data', function () {
+        it.only('should return backup data', function () {
+            //MOCK_CREDENTIALS2.addPublicKeyRing([]);
             var csclient = new CSClient(creation_opts);
             var data = csclient.buildBackupData(MOCK_CREDENTIALS2, MOCK_BACKUPREQUEST);
             data.should.equal(MOCK_FULLBACKUPDATA);
@@ -804,6 +832,10 @@ describe('CSClient', function () {
     });
 
     describe('._prepareBackupPartialData', function () {
+
+    });
+
+    describe('._verifyBackupRequestSignature', function () {
 
     });
 
