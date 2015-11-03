@@ -596,7 +596,7 @@ describe('CSClient', function () {
             http_response.data = MOCK_HTTP_RESPONSE;
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
-            csclient.createBackupRequest(MOCK_CREDENTIALS, function (err, data) {
+            csclient.createBackupRequest(MOCK_CREDENTIALS2, function (err, data) {
                 should.exist(data);
                 data.should.be.a('string');
                 data.should.equal(creation_opts.httpRequest.getCall(0).args[0].data.reqId);
@@ -864,10 +864,10 @@ describe('CSClient', function () {
 
     describe('.buildBackupData', function () {
         var MOCK_BACKUPREQUEST = {
-            reqId: '--id-placeholder--',
+            reqId: 'g8rmz7sl9qw',
             reqCopayer: MOCK_CREDENTIALS2.copayerId,
-            reqTimestamp: 1111111,
-            reqSignature: '--signature-placeholder--',
+            reqTimestamp: 1446541849132,
+            reqSignature: '30450221009e9b56b91ce832c3ce1a7e12d91deaec07492a3359ce77ae9e239cc773050928022003e9bcffab0e851ca95f59a3d17f4a6df3d4f4deb2e97c8ea7ad1bfc3c65dde0',
             partialData: '{"iv":"ms3g+1pSsNfK4KQCRzfcRA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"HqxZsZS/PVNCCcV6j9PLWe1QQlEIVT1fpj5Ai1R66WjsBAlB37B7OT92EiQCVpS001oLHrrtsMgq/5vMoXfoNZ/nbhxhOxItPDB6vpOccAWfDYLXjsXU4vmZ4QxvxcIdXw28r8T2NCGX3ZcCkANdZ4+oXSHC9hMkd3Q4DK4ux2VkRzIBMHWvFkFotDYr+VJKNsuR3s5uui9N2ngRUnaWkxg05D56EiWPL9n4VYnCI9pVhQaEiWk3v+BVg73BcXWG4Co7jXzeHjJGdPTDUGsx5NrL5yfC3DWrZknynmELheSuerKTZIU6/LcrBelJwl3+XkUW5HIBnEw02Y9/YileN2I+wHdFKLujKg/acE+heOOgJK8NJD2MhomiNxBJdox8drZToP3X3U6k8D0K6Kze1NPsD3ywq5EUG4if3+LmGTRbOJ6vFZrzfSGKGDvIx30b6uTDZGn4aEd/M7PAiVAC/PAsJwOhHkiXSyF5Be5xozMv+TrjMe8RD6xdtjYT5pHYfKU65Z8o+bi/ehEBV9NWdHX8d2WTA7ZBgx6QB1aiFeNenJBmp77MKbSVcdNeJoLMGSdbuXuxT1+uAHXBJDiT0h1Hp0/tdtQp7Nd1jk2SIEGSM7fgojbQA9ZsuAD0ZEaM0TnGjJa9EQ6lEUSHbbbv/xd2xdw4mDbNk2dAA+kj24F9hTUrI8oTvs5ZTjqPMV12ouhnPG0oIlX5W+VwqSxFk0CgXbUb2XEp5oLyOaSjAKVOCUSCk8xg5uyPfVYTe85qlE6WXPV27dYF5St3JqDrjYJgAms1n+ug+ijdehMGPdW863qSpnDrgyOVIf1/BLJyP688eH0iVr6A2AEl1R/mI0EQgPJYMnn/cVFsqE8eAZHiguq8uemHGbpROSC4a0z+vwzmjK28vRXhK9+SZhJ8MwN1xVPzAEb4fBbTilGIWtXsIjWdjzfq4Zfs4qnPyiPG1b+W1ypI5wzWeIqe6XZGiqHz"}'
         };
         var MOCK_FULLBACKUPDATA = {
@@ -883,12 +883,33 @@ describe('CSClient', function () {
         });
     });
 
-    describe('._prepareBackupPartialData', function () {
-
-    });
-
     describe('._verifyBackupRequestSignature', function () {
+        var csclient, reqId, timestamp, getParams;
+        var MOCK_REQID = 'g8rmz7sl9qw';
+        var MOCK_BACKUPREQUEST;
 
+        beforeEach(function () {
+            csclient = new CSClient(creation_opts);
+            timestamp = Date.now();
+            getParams = csclient._createBackupRequestParams(MOCK_CREDENTIALS2.walletId, MOCK_REQID, timestamp);
+            csclient._signRequest(MOCK_CREDENTIALS2, getParams);
+            MOCK_BACKUPREQUEST = {
+                reqId: MOCK_REQID,
+                reqCopayer: MOCK_CREDENTIALS2.copayerId,
+                reqTimestamp: timestamp,
+                reqSignature: getParams.headers['x-signature'],
+                partialData: '{"iv":"ms3g+1pSsNfK4KQCRzfcRA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"HqxZsZS/PVNCCcV6j9PLWe1QQlEIVT1fpj5Ai1R66WjsBAlB37B7OT92EiQCVpS001oLHrrtsMgq/5vMoXfoNZ/nbhxhOxItPDB6vpOccAWfDYLXjsXU4vmZ4QxvxcIdXw28r8T2NCGX3ZcCkANdZ4+oXSHC9hMkd3Q4DK4ux2VkRzIBMHWvFkFotDYr+VJKNsuR3s5uui9N2ngRUnaWkxg05D56EiWPL9n4VYnCI9pVhQaEiWk3v+BVg73BcXWG4Co7jXzeHjJGdPTDUGsx5NrL5yfC3DWrZknynmELheSuerKTZIU6/LcrBelJwl3+XkUW5HIBnEw02Y9/YileN2I+wHdFKLujKg/acE+heOOgJK8NJD2MhomiNxBJdox8drZToP3X3U6k8D0K6Kze1NPsD3ywq5EUG4if3+LmGTRbOJ6vFZrzfSGKGDvIx30b6uTDZGn4aEd/M7PAiVAC/PAsJwOhHkiXSyF5Be5xozMv+TrjMe8RD6xdtjYT5pHYfKU65Z8o+bi/ehEBV9NWdHX8d2WTA7ZBgx6QB1aiFeNenJBmp77MKbSVcdNeJoLMGSdbuXuxT1+uAHXBJDiT0h1Hp0/tdtQp7Nd1jk2SIEGSM7fgojbQA9ZsuAD0ZEaM0TnGjJa9EQ6lEUSHbbbv/xd2xdw4mDbNk2dAA+kj24F9hTUrI8oTvs5ZTjqPMV12ouhnPG0oIlX5W+VwqSxFk0CgXbUb2XEp5oLyOaSjAKVOCUSCk8xg5uyPfVYTe85qlE6WXPV27dYF5St3JqDrjYJgAms1n+ug+ijdehMGPdW863qSpnDrgyOVIf1/BLJyP688eH0iVr6A2AEl1R/mI0EQgPJYMnn/cVFsqE8eAZHiguq8uemHGbpROSC4a0z+vwzmjK28vRXhK9+SZhJ8MwN1xVPzAEb4fBbTilGIWtXsIjWdjzfq4Zfs4qnPyiPG1b+W1ypI5wzWeIqe6XZGiqHz"}'
+            };
+        });
+        it('should return true', function () {
+            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS2)
+                .should.be.true;
+        });
+        it('should return false', function () {
+            MOCK_BACKUPREQUEST.reqId = '-wrong-id-';
+            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS2)
+                .should.be.false;
+        });
     });
 
 
