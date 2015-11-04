@@ -872,7 +872,7 @@ describe('CSClient', function () {
         };
         var MOCK_FULLBACKUPDATA = {
             "encPrivKey1": "{\"iv\":\"rA3eBE1uASBQ25UD8LGwtA==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"6tn94VgcUmg=\",\"ct\":\"VNsOjfeQ66REE0/MVvpDcbk9kBeh16kbJPepXs/Bs1p+IsS1mKwog4JdMDa145CFw8j3yqs0oORi2u5ERZ0k1IfvaSah9//CVzEjUMI+C5blXgqJbGFWJHJ1iVBJzc26WNI86FTcecYgmbbcClbYyWMmiR0y/o0=\"}",
-            "encPubKey3": "tpubDCTtHnfCAAPzWCU8JdC5kcw84RrbQQW7EF7rbE42XCqWJfM1HabfbRDKn3zBzvpnVBbUarZcexfzi5hjJB4FLj9bSY9qzRRsJvUUtB6Cdcp"
+            "xPubKey3": "tpubDCTtHnfCAAPzWCU8JdC5kcw84RrbQQW7EF7rbE42XCqWJfM1HabfbRDKn3zBzvpnVBbUarZcexfzi5hjJB4FLj9bSY9qzRRsJvUUtB6Cdcp"
         };
         it('should return backup data', function () {
             var csclient = new CSClient(creation_opts);
@@ -920,6 +920,8 @@ describe('CSClient', function () {
         });
     });
 
-
+    describe('.decryptBackupData', function () {
+        //TODO tests for decryptBackupData()
+    });
 });
 
