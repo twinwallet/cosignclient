@@ -242,7 +242,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/setup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/setup';
             var exp_data = {network: MOCK_CREDENTIALS.network};
             testHttpRequestCall('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.getHash(MOCK_CREDENTIALS, callback);
@@ -312,7 +312,7 @@ describe('CSClient', function () {
             });
         })
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS2.walletId
             var exp_data = {
                 copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
                 walletPubKey: MOCK_WALLETPUBKEY,
@@ -354,7 +354,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
             testHttpRequestCall('GET', url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
             });
@@ -393,7 +393,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
             testHttpRequestCall('PUT', url, {spendingLimit: 100}, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
             });
@@ -432,7 +432,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
             var exp_data = {
                 spendingLimit: 100,
                 status: 'confirm'
@@ -577,7 +577,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
             var exp_data = {};
             var startTime = Date.now();
             testHttpRequestCall('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
@@ -643,7 +643,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
             testHttpRequestCall('DELETE', url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.cleanupBackupRequest(MOCK_CREDENTIALS, callback);
             });
@@ -692,7 +692,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
             testHttpRequestCall('GET', url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.getBackupRequest(MOCK_CREDENTIALS, callback);
             });
@@ -779,7 +779,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/wallets/' + MOCK_CREDENTIALS2.walletId + '/backup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS2.walletId + '/backup';
             var data = {
                 reqId: MOCK_BACKUPREQUEST.reqId,
                 partialData: '--partila-data-placeholder--'
@@ -812,11 +812,11 @@ describe('CSClient', function () {
 
     describe('._prepareBackupPartialData', function () {
         var MOCK_BACKUPREQUEST = {
-            reqId: '--id-placeholder--',
-            reqCopayer: MOCK_COPAYERHASH,
-            reqTimestamp: 1111111,
-            reqSignature: '--signature-placeholder--',
-            partialData: ''
+            reqId: 'g8rmz7sl9qw',
+            reqCopayer: MOCK_CREDENTIALS2.copayerId,
+            reqTimestamp: 1446541849132,
+            reqSignature: '30440220105072dfda05db6864d9c79d4c873fe1afa266f88326750f2d9ab4d71f2659f8022015922c83fad16adc853c2d7919f0b9a012928c8c80afdbdd8c691470a0a40e19',
+            partialData: undefined
         };
         var csclient;
         beforeEach(function () {
@@ -867,11 +867,11 @@ describe('CSClient', function () {
             reqId: 'g8rmz7sl9qw',
             reqCopayer: MOCK_CREDENTIALS2.copayerId,
             reqTimestamp: 1446541849132,
-            reqSignature: '30450221009e9b56b91ce832c3ce1a7e12d91deaec07492a3359ce77ae9e239cc773050928022003e9bcffab0e851ca95f59a3d17f4a6df3d4f4deb2e97c8ea7ad1bfc3c65dde0',
-            partialData: '{"iv":"WruNBdUHEhlss1qIE9uuMQ==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"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"}'
+            reqSignature: '30440220105072dfda05db6864d9c79d4c873fe1afa266f88326750f2d9ab4d71f2659f8022015922c83fad16adc853c2d7919f0b9a012928c8c80afdbdd8c691470a0a40e19',
+            partialData: '{"iv":"X1mYOCzyvL5oigT8sv+4oA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"Zp/nnQpGM+0DP2KiUwNCOEDzDNSeLLobIWWE6YROqn7c75uveaGiJIPwPZIHUXLQ/9QOoydu7+1+POY0J0law2VM39E3pE5R/5tgpgui++yUCSILe2WBpCAW9hY0fFjvtl/SXmPtjohl2k9kjGyYzxkmGv8bwvLnE+88JrvI2IothgIYNWqdGlOpQXD0YCYC4pvyZUKbHu3AegWlJ23/f8tKvwZMVb09ctd5Bwvtrsx82gs27G2H2lD66GWjKb0JcjHt3ZbDpczZsvXIbvsYGOdQTL78tuzz09NfOezNbycWimxb17aSLuPerEouIlWsNcuM9s+/EeR/XkTFXQ67jsPoY4E4WCXFn13iFrNG/SHlHhu+t/WvOuYD54o9y2cFnz/bsbmDxhTUVgoYLGJPOaRmeQjQ1jhl4nkNFsMZtdRPrXu3YJ9wtBsfXnRSTOirKfSR+DiFW8ExPi0CI2m9q5GuW7raLkpe/r80VyumRUMc+NtIa0dmJc5Hn7q4CTzE7eT9kbVE2CF5z5vP4jiT9kTUUTnSzGsO8Nnj+RqED7Ilw6Um2DtcPN2q0SO3Y3kHnBgMmVfoU4T/L87Aw7qL/4e8Tz0kSrSVVfmA6BrefXTJxv3Mo+prij0NZ8sjWoMYllbGfyQXEokb8gq9bl+sgy06ZBHDw/9JRLK/F8NqZlFiwrTnVkCbVxzN0SmLNgwj9E/tMcTEFHIma2C4xDjz5e/8uQO0HcXChLBIeuhhGvPzb/Zm9VjVjLV9FbQLxwzIjXpO8t8o/B9/qFVAFLaS+MdrbFFVRtGm2/+eyk0JG/0GqCqavzp3OslAXSO77pNgL8qGuN0TOSHIoPsyccQvX7y0nvh2/LKeInUhYvoMsKPveOyqYVvThmzQkvngFg8K4Fnk/xMLRJHyf4qaLnGVw7zxoB4IpRiXeD989jaoCdHjCuoSG22j8/HIRPXzJc3US/FOnsiuU8z4Vy52J5pLPGKEKr13xlUEEfhcJtK7aTaoQLTNAI7SoPVyWkxyut7moD94o4dvSNz4/hywx/kageFFlr3jpIDzs1gQiSnahP09dAUmbjAxLDJs42NxupxSBVmfpRZhjxKgxtbKyUr7d5XXLtYvv86m9RE4BeDnomXKV0qd2p7oX8imdj/WipIQOiXN9HmfiQ=="}'
         };
         var MOCK_FULLBACKUPDATA = {
-            "encPrivKey1": "{\"iv\":\"rA3eBE1uASBQ25UD8LGwtA==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"6tn94VgcUmg=\",\"ct\":\"VNsOjfeQ66REE0/MVvpDcbk9kBeh16kbJPepXs/Bs1p+IsS1mKwog4JdMDa145CFw8j3yqs0oORi2u5ERZ0k1IfvaSah9//CVzEjUMI+C5blXgqJbGFWJHJ1iVBJzc26WNI86FTcecYgmbbcClbYyWMmiR0y/o0=\"}",
+            "encPrivKey1": '{\"iv\":\"WnhiDqKEXS5XQMtfTfFEfA==\",\"v\":1,\"iter\":10000,\"ks\":128,\"ts\":64,\"mode\":\"ccm\",\"adata\":\"\",\"cipher\":\"aes\",\"salt\":\"CuE9F4LOQM0=\",\"ct\":\"aSS+4l44GFO3VJcaCDGMgYrlHc4C6DqmDjt9KbaTqSxwGdulwYvuHcL490VeHMnpFYF3N3Q3cxN97hWnOA3UxRMWMPZT9Icy5JW3DpPM3YVJ8GrSI0xEcZql2HBcJ4pt53TRiawDorxzCWUxFfVEorgA9W9uA4U=\"}',
             "xPubKey3": "tpubDCTtHnfCAAPzWCU8JdC5kcw84RrbQQW7EF7rbE42XCqWJfM1HabfbRDKn3zBzvpnVBbUarZcexfzi5hjJB4FLj9bSY9qzRRsJvUUtB6Cdcp"
         };
         it('should return backup data', function () {
