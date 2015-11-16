@@ -5,7 +5,7 @@ var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
 
-cscModule.constant('MODULE_VERSION', '0.1.1');
+cscModule.constant('MODULE_VERSION', '0.4.0');
 
 /**
  * Service factory.
@@ -82,7 +82,7 @@ CSClient.prototype.getHash = function (credentials, cb) {
     var self = this;
     var params = {
         method: 'POST',
-        url: self.baseUrl + '/wallets/' + credentials.walletId + '/setup',
+        url: self.baseUrl + '/v1/wallets/' + credentials.walletId + '/setup',
         data: {
             network: credentials.network
         }
@@ -119,7 +119,7 @@ CSClient.prototype.joinWallet = function (credentials, cb) {
         };
         var params = {
             method: 'POST',
-            url: self.baseUrl + '/wallets/' + walletId,
+            url: self.baseUrl + '/v1/wallets/' + walletId,
             data: data
         };
         self._signRequest(credentials, params);
@@ -141,7 +141,7 @@ CSClient.prototype.getSpendingLimit = function (credentials, cb) {
     var walletId = credentials.walletId;
     var getParams = {
         method: 'GET',
-        url: this.baseUrl + '/wallets/' + walletId + '/spendinglimit',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/spendinglimit',
         //headers: {
         //'cache-control': 'no-cache',
         //'accept-language': undefined,
@@ -171,7 +171,7 @@ CSClient.prototype.requestSpendingLimit = function (credentials, limit, cb) {
     var walletId = credentials.walletId;
     var params = {
         method: 'PUT',
-        url: this.baseUrl + '/wallets/' + walletId + '/spendinglimit',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/spendinglimit',
         data: {'spendingLimit': limit}
     };
     this._signRequest(credentials, params);
@@ -197,7 +197,7 @@ CSClient.prototype.confirmSpendingLimit = function (credentials, limit, confirm,
     var walletId = credentials.walletId;
     var params = {
         method: 'PATCH',
-        url: this.baseUrl + '/wallets/' + walletId + '/spendinglimit',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/spendinglimit',
         data: {
             spendingLimit: limit,
             status: confirm ? 'confirm' : 'reject'
@@ -252,7 +252,7 @@ CSClient.prototype.initNotifications = function (credentials, cb) {
 CSClient.prototype._createBackupRequestParams = function (walletId, reqId, timestamp) {
     return {
         method: 'POST',
-        url: this.baseUrl + '/wallets/' + walletId + '/backup',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/backup',
         data: {
             reqId: reqId,
             reqTimestamp: timestamp
@@ -288,14 +288,18 @@ CSClient.prototype.createBackupRequest = function (credentials, cb) {
         });
 };
 
+CSClient.prototype._deriveHX = function (backupPassword, xPrivKey) {
+    var privKey = this.bwutils.Bitcore.HDPrivateKey(xPrivKey).privateKey.toString();
+    var saltBits = this.sjcl.codec.hex.toBits(privKey);
+    var hX = this.sjcl.misc.pbkdf2(backupPassword, saltBits, 10000, 256);
+    return hX;
+};
 CSClient.prototype._prepareBackupPartialData = function (credentials, backupPassword, backupRequest) {
     var self = this;
     //FIXME crypto for backup
     var encXPK = self.sjcl.encrypt(backupPassword, credentials.xPrivKey, {iter: 10000});
     // use private key as salt for hX generation
-    var privKey = self.bwutils.Bitcore.HDPrivateKey(credentials.xPrivKey).privateKey.toString();
-    var saltBits = self.sjcl.codec.hex.toBits(privKey);
-    var hX = self.sjcl.misc.pbkdf2(backupPassword, saltBits, 10000, 256);
+    var hX = this._deriveHX(backupPassword, credentials.xPrivKey);
     var data = {
         req_data: backupRequest,
         encryptedKey: encXPK,
@@ -327,7 +331,7 @@ CSClient.prototype.sendBackupRequestData = function (credentials, backupPassword
     var encData = self._prepareBackupPartialData(credentials, backupPassword, backupRequest);
     var getParams = {
         method: 'PATCH',
-        url: self.baseUrl + '/wallets/' + walletId + '/backup',
+        url: self.baseUrl + '/v1/wallets/' + walletId + '/backup',
         data: {
             reqId: backupRequest.reqId,
             partialData: encData
@@ -362,7 +366,7 @@ CSClient.prototype.getBackupRequest = function (credentials, cb) {
     var walletId = credentials.walletId;
     var getParams = {
         method: 'GET',
-        url: this.baseUrl + '/wallets/' + walletId + '/backup',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/backup',
     };
     this._signRequest(credentials, getParams);
     this.httpRequest(getParams)
@@ -435,7 +439,33 @@ CSClient.prototype.buildBackupData = function (credentials, backupRequest) {
     return {
         encPrivKey1: decData.encryptedKey,
         encPrivKey2: encXPK,
-        encPubKey3: serverPubKey,
+        xPubKey3: serverPubKey,
+    };
+};
+
+/**
+ *
+ * @param backupData
+ * @param {string} password
+ * @returns {{xPrivKey1: string, xPrivKey2: string, xPubKey3: string}} 2 extended private keys and 1 extended public key
+ */
+CSClient.prototype.decryptBackupData = function (backupData, password) {
+    if (!backupData || !password || !backupData.encPrivKey1 || !backupData.encPrivKey2 || !backupData.xPubKey3)
+        throw new Error('Missing or invalid parameters');
+    var xpk1, xpk2, encXPK2;
+    try {
+        xpk1 = sjcl.decrypt(password, backupData.encPrivKey1);
+        encXPK2 = backupData.encPrivKey2;
+    } catch (err) {
+        xpk1 = sjcl.decrypt(password, backupData.encPrivKey2);
+        encXPK2 = backupData.encPrivKey1;
+    }
+    var hX = this._deriveHX(password, xpk1);
+    xpk2 = sjcl.decrypt(hX, encXPK2);
+    return {
+        xPrivKey1: xpk1,
+        xPrivKey2: xpk2,
+        xPubKey3: backupData.xPubKey3
     };
 };
 
@@ -456,7 +486,7 @@ CSClient.prototype.cleanupBackupRequest = function (credentials, cb) {
     var walletId = credentials.walletId;
     var getParams = {
         method: 'DELETE',
-        url: this.baseUrl + '/wallets/' + walletId + '/backup',
+        url: this.baseUrl + '/v1/wallets/' + walletId + '/backup',
     };
     this._signRequest(credentials, getParams);
     this.httpRequest(getParams)
