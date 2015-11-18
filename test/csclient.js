@@ -23,37 +23,32 @@ var MOCK_WALLETPUBKEY = (new Bitcore.PrivateKey(MOCK_WALLETPRIVKEY)).toPublicKey
 var MOCK_REQUEST_NULL = function() { return { then: function(s,e) {} } };
 var MOCK_SHAREDENCRIPTINGKEY = 'hiL2zY/82aRwOx7Y5UIYwQ==';  // derived from key b2a724fae2a1e09e79d49cc51bfb9d8035958e241ec820715f4b0df45fb335a7
 var MOCK_COPAYERHASH = '-copayer-hash-placeholder-';
-var MOCK_CREDENTIALS = {
-    walletId: '7c9a7df9-990c-4de6-8f49-572ff0938216',
-    sharedEncryptingKey: MOCK_SHAREDENCRIPTINGKEY,
-    copayerId: '2a59dd2a92ef6108b46e277ee5aa9778d00b1092f171601f466551cdc7d90668',
-    requestPrivKey: MOCK_REQPRIVKEY,
-    network: Bitcore.Networks.livenet,
-};
+var MOCK_WALLETID = '7c9a7df9-990c-4de6-8f49-572ff0938216';
 
-var MOCK_CREDENTIALS2 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPfB68j6QH2jhxju935kx7eXqg28aMBD49wd7Crrqwv665r7ikjeMH8N1jb25J45LhTm7FwhqNRHp7Ddy6CcVfYpHW73zAdvP');
-var MOCK_CREDENTIALS3 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPe4EpMwgKFqMmJVqY4tPJdhRzZCx8hm9EaDUAw83Z5YazrVKriSDu1QTkf1GjFaFNB8maXYULooG8WeB2frrxsrEYUWq4hGZ');
-var MOCK_CREDENTIALS4 = Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPdM28UpEyZoTmYiGjELD2H4WyFQeBxsd2WZYopc5zsdPf2ZZkWbNULfd5aXKvxiNhrvkAxLAoWwBDbWx4CNQaCDAFA3DzK1g');
-MOCK_CREDENTIALS2.addWalletInfo(
-    '7c9a7df9-990c-4de6-8f49-572ff0938216',
-    '--wallet-name--',
-    2,
-    3,
-    MOCK_WALLETPRIVKEY,
-    '--copayer-name--'
-);
-MOCK_CREDENTIALS2.addPublicKeyRing([
-    {
-        requestPubKey: MOCK_CREDENTIALS2.requestPubKey,
-        xPubKey: MOCK_CREDENTIALS2.xPubKey
-    }, {
-        requestPubKey: MOCK_CREDENTIALS3.requestPubKey,
-        xPubKey: MOCK_CREDENTIALS3.xPubKey
-    }, {
-        requestPubKey: MOCK_CREDENTIALS4.requestPubKey,
-        xPubKey: MOCK_CREDENTIALS4.xPubKey
-    }
-]);
+var MOCK_CREDENTIALSARRAY = [
+    Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPfB68j6QH2jhxju935kx7eXqg28aMBD49wd7Crrqwv665r7ikjeMH8N1jb25J45LhTm7FwhqNRHp7Ddy6CcVfYpHW73zAdvP'),
+    Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPe4EpMwgKFqMmJVqY4tPJdhRzZCx8hm9EaDUAw83Z5YazrVKriSDu1QTkf1GjFaFNB8maXYULooG8WeB2frrxsrEYUWq4hGZ'),
+    // the third credential is derived from the first two using the algorithm for join v2
+    Credentials.fromExtendedPrivateKey('tprv8ZgxMBicQKsPed74x6fBGh6UxpZ743sftFVukK281a3kdbDj4Set65MNQw4ekqSGBXJquQuNfokwZyD2fbqQsLa6bG8qSXQK4YVDopdejg4')
+];
+var MOCK_CREDENTIALS = MOCK_CREDENTIALSARRAY[0];
+var MOCK_PUBLICKEYRING = MOCK_CREDENTIALSARRAY.map(function (c) {
+    return {
+        requestPubKey: c.requestPubKey,
+        xPubKey: c.xPubKey
+    };
+});
+for (var i=0; i<3; i++) {
+    MOCK_CREDENTIALSARRAY[i].addWalletInfo(
+        MOCK_WALLETID,
+        '--wallet-name--',
+        2,
+        3,
+        MOCK_WALLETPRIVKEY,
+        '--copayer' + (i+1) +'--'
+    );
+    MOCK_CREDENTIALSARRAY[i].addPublicKeyRing(MOCK_PUBLICKEYRING);
+}
 
 function successHttpHelper(response) {
     return {
@@ -125,7 +120,15 @@ describe('CSClient', function () {
      * @param {function(csclient, credentials, callback)} cb
      */
     function it_testsIncompleteCredentials(completeCredentials, cb) {
-        _.forEach(completeCredentials, function (v, f_name) {
+        var fields = [
+            'walletId',
+            'sharedEncryptingKey',
+            'copayerId',
+            'requestPrivKey',
+            'network',
+        ];
+        //_.forEach(completeCredentials, function (v, f_name) {
+        fields.forEach(function(f_name) {
             it('should return error with missing credential field ' + f_name, function (done) {
                 var csclient = new CSClient(creation_opts);
                 var credentials = _.clone(completeCredentials);
@@ -172,6 +175,31 @@ describe('CSClient', function () {
                 should.not.exist(callArg.data);
             var reqPubKey = (new Bitcore.PrivateKey(exp_credentials.requestPrivKey)).toPublicKey().toString();
             signatureShouldBeOk(callArg, expected, reqPubKey);
+            done();
+        });
+    }
+
+    function testJoinHttpRequest(exp_method, exp_url, exp_data, exp_credentials, done, cb) {
+        var expected = {
+            method: exp_method,
+            url: exp_url,
+            data: exp_data
+        };
+        http_response.data = _.clone(MOCK_HTTP_RESPONSE);
+        var reqStub = creation_opts.httpRequest = sinon.expectation.create()
+            .once()
+            .returns(successHttpHelper(http_response));
+        var csclient = new CSClient(creation_opts);
+        cb(csclient, function(err, data) {
+            reqStub.verify();
+            var callArg = reqStub.getCall(0).args[0];
+            callArg.should.containSubset(expected);
+            if (typeof exp_data === 'undefined')
+                should.not.exist(callArg.data);
+            var pubkey = (new Bitcore.PrivateKey(exp_credentials.walletPrivKey)).toPublicKey().toString();
+            var msg = JSON.stringify(expected.data);
+            var signOk = walletUtils.verifyMessage(msg, callArg.data.joinSignature, pubkey);
+            signOk.should.be.true;
             done();
         });
     }
@@ -277,22 +305,22 @@ describe('CSClient', function () {
     });
 
     describe('.joinWallet', function () {
-        var MOCK_CREDENTIALS2 = _.clone(MOCK_CREDENTIALS);
-        MOCK_CREDENTIALS2.walletPrivKey = MOCK_WALLETPRIVKEY;
+        var MOCK_CREDENTIALS = _.clone(MOCK_CREDENTIALSARRAY[0]);
+        MOCK_CREDENTIALS.walletPrivKey = MOCK_WALLETPRIVKEY;
 
         it('should return error with null argument', function (done) {
             testReturnedError(done, function (csclient, callback) {
                 csclient.joinWallet(null, callback);
             });
         });
-        it_testsIncompleteCredentials(MOCK_CREDENTIALS2, function(csclient, credentials, callback) {
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS, function(csclient, credentials, callback) {
             csclient.joinWallet(credentials, callback);
         });
         it('should return error on getHash() error', function (done) {
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
             sinon.stub(csclient, 'getHash').yields(new Error());
-            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
+            csclient.joinWallet(MOCK_CREDENTIALS, function (err, data) {
                 should.exist(err);
                 should.not.exist(data);
                 done();
@@ -304,35 +332,198 @@ describe('CSClient', function () {
             var mock = sinon.mock(csclient);
             mock.expects('getHash')
                 .once()
-                .withArgs(MOCK_CREDENTIALS2)
+                .withArgs(MOCK_CREDENTIALS)
                 .yields(new Error());
-            csclient.joinWallet(MOCK_CREDENTIALS2, function (err, data) {
+            csclient.joinWallet(MOCK_CREDENTIALS, function (err, data) {
                 mock.verify();
                 done();
             });
         })
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS2.walletId
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId
             var exp_data = {
                 copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
                 walletPubKey: MOCK_WALLETPUBKEY,
-                sharedEncryptingKey: MOCK_CREDENTIALS2.sharedEncryptingKey
+                sharedEncryptingKey: MOCK_CREDENTIALS.sharedEncryptingKey
             };
-            testHttpRequestCall('POST', url, exp_data, MOCK_CREDENTIALS2, done, function(csclient, callback) {
+            testHttpRequestCall('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
-                csclient.joinWallet(MOCK_CREDENTIALS2, callback);
+                csclient.joinWallet(MOCK_CREDENTIALS, callback);
             });
         });
         it('should complete successfully', function (done) {
             testRetunedData({}, {}, done, function(csclient, callback) {
                 sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
-                csclient.joinWallet(MOCK_CREDENTIALS2, callback);
+                csclient.joinWallet(MOCK_CREDENTIALS, callback);
             });
         });
         it('should return error if http error', function (done) {
             testHttpError(done, function(csclient, callback) {
                 sinon.stub(csclient, 'getHash').yields(null, MOCK_COPAYERHASH);
                 csclient.joinWallet(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
+    describe('.joinServerFromDevice1', function () {
+        var MOCK_CREDENTIALS = _.clone(MOCK_CREDENTIALSARRAY[0]);
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.joinServerFromDevice1(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS, function(csclient, credentials, callback) {
+            csclient.joinServerFromDevice1(credentials, callback);
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/setup';
+            var exp_data = {
+                walletId: MOCK_WALLETID,
+                copayerId1: MOCK_CREDENTIALS.copayerId,
+                entropy1: 'Oxtf4DnG2Ff0FMuZ0MIn15Nc20QIdAGCeFV82YzAPE8=',
+                network: MOCK_CREDENTIALS.network,
+                walletPubKey: MOCK_WALLETPUBKEY,
+                sharedEncKey: MOCK_CREDENTIALS.sharedEncryptingKey,
+            };
+            testJoinHttpRequest('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.joinServerFromDevice1(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should terminate', function (done) {
+            testTerminationWithoutError(null, done, function(csclient, callback) {
+                csclient.joinServerFromDevice1(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.joinServerFromDevice1(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error on http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.getHash(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
+    describe('._joinV2Step2', function () {
+        var MOCK_CREDENTIALS = _.clone(MOCK_CREDENTIALSARRAY[1]);
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient._joinV2Step2(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS, function(csclient, credentials, callback) {
+            csclient._joinV2Step2(credentials, callback);
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/setup';
+            var exp_data = {
+                walletId: MOCK_WALLETID,
+                copayerId2: MOCK_CREDENTIALS.copayerId,
+                entropy2: 'YD6FfjHGLX7fZC6IK0f+z1/6jOapnmExOCSmczW+2y0=',
+            };
+            testJoinHttpRequest('PATCH', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient._joinV2Step2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should terminate', function (done) {
+            testTerminationWithoutError({copayerHash: MOCK_COPAYERHASH}, done, function(csclient, callback) {
+                csclient._joinV2Step2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return correct hash', function (done) {
+            testRetunedData({copayerHash: MOCK_COPAYERHASH}, MOCK_COPAYERHASH, done, function(csclient, callback) {
+                csclient._joinV2Step2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient._joinV2Step2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error "Copayer hash missing"', function (done) {
+            http_response.data = {};
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            csclient._joinV2Step2(MOCK_CREDENTIALS, function (err, hash) {
+                should.exist(err);
+                _.startsWith(err.message, 'Copayer hash missing').should.be.true;
+                should.not.exist(hash);
+                done();
+            });
+        });
+        it('should return error on http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient._joinV2Step2(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
+    describe('.joinServerFromDevice2', function () {
+        var MOCK_CREDENTIALS = _.clone(MOCK_CREDENTIALSARRAY[1]);
+
+        //TODO questi test sono stati compiati da joinServerFromDevice1 e appena aggiustati. Completare!
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.joinServerFromDevice2(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS, function(csclient, credentials, callback) {
+            csclient.joinServerFromDevice2(credentials, callback);
+        });
+        it('should return error on _joinV2Step2() error', function (done) {
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            sinon.stub(csclient, '_joinV2Step2').yields(new Error());
+            csclient.joinServerFromDevice2(MOCK_CREDENTIALS, function (err) {
+                should.exist(err);
+                done();
+            });
+        });
+        it('should call _joinV2Step2() with credentials', function(done) {
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            var csclient = new CSClient(creation_opts);
+            var mock = sinon.mock(csclient);
+            mock.expects('_joinV2Step2')
+                .once()
+                .withArgs(MOCK_CREDENTIALS)
+                .yields(new Error());
+            csclient.joinServerFromDevice2(MOCK_CREDENTIALS, function (err, data) {
+                mock.verify();
+                done();
+            });
+        })
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId;
+            var exp_data = {
+                walletId: MOCK_WALLETID,
+                copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
+            };
+            testJoinHttpRequest('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                sinon.stub(csclient, '_joinV2Step2').yields(null, MOCK_COPAYERHASH);
+                csclient.joinServerFromDevice2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should terminate', function (done) {
+            testTerminationWithoutError(null, done, function(csclient, callback) {
+                sinon.stub(csclient, '_joinV2Step2').yields(null, MOCK_COPAYERHASH);
+                csclient.joinServerFromDevice2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                sinon.stub(csclient, '_joinV2Step2').yields(null, MOCK_COPAYERHASH);
+                csclient.joinServerFromDevice2(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error on http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                sinon.stub(csclient, '_joinV2Step2').yields(null, MOCK_COPAYERHASH);
+                csclient.getHash(MOCK_CREDENTIALS, callback);
             });
         });
     });
@@ -596,7 +787,7 @@ describe('CSClient', function () {
             http_response.data = MOCK_HTTP_RESPONSE;
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             var csclient = new CSClient(creation_opts);
-            csclient.createBackupRequest(MOCK_CREDENTIALS2, function (err, data) {
+            csclient.createBackupRequest(MOCK_CREDENTIALS, function (err, data) {
                 should.exist(data);
                 data.should.be.a('string');
                 data.should.equal(creation_opts.httpRequest.getCall(0).args[0].data.reqId);
@@ -747,12 +938,12 @@ describe('CSClient', function () {
         });
         it('should return error with null password', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, null, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, null, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error with null backupRequest', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, null, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, null, callback);
             });
         });
         it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
@@ -760,7 +951,7 @@ describe('CSClient', function () {
         });
         it('should return error with encrypted credentials', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                var credentials = Credentials.fromObj(MOCK_CREDENTIALS2);
+                var credentials = Credentials.fromObj(MOCK_CREDENTIALS);
                 credentials.setPrivateKeyEncryption('testPassw0rd');
                 credentials.lock();
                 csclient.sendBackupRequestData(credentials, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
@@ -768,30 +959,30 @@ describe('CSClient', function () {
         });
         it('should return error if pending backup request was created from same copayer', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                var credentials = Credentials.fromObj(MOCK_CREDENTIALS2);
+                var credentials = Credentials.fromObj(MOCK_CREDENTIALS);
                 credentials.copayerId = MOCK_BACKUPREQUEST.req_copayer;
                 csclient.sendBackupRequestData(credentials, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should terminate without error', function (done) {
             testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS2.walletId + '/backup';
+            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/backup';
             var data = {
                 reqId: MOCK_BACKUPREQUEST.reqId,
                 partialData: '--partila-data-placeholder--'
             };
-            testHttpRequestCall('PATCH', url, data, MOCK_CREDENTIALS2, done, function(csclient, callback) {
+            testHttpRequestCall('PATCH', url, data, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 sinon.stub(csclient, '_prepareBackupPartialData').returns(data.partialData);
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if bad http response', function (done) {
             testBadHttpResponse(done, function(csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if result is not OK', function (done) {
@@ -800,12 +991,12 @@ describe('CSClient', function () {
             };
             creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
             testReturnedError(done, function (csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
         it('should return error if http error', function (done) {
             testHttpError(done, function(csclient, callback) {
-                csclient.sendBackupRequestData(MOCK_CREDENTIALS2, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
+                csclient.sendBackupRequestData(MOCK_CREDENTIALS, MOCK_PASSWORD, MOCK_BACKUPREQUEST, callback);
             });
         });
     });
@@ -813,7 +1004,7 @@ describe('CSClient', function () {
     describe('._prepareBackupPartialData', function () {
         var MOCK_BACKUPREQUEST = {
             reqId: 'g8rmz7sl9qw',
-            reqCopayer: MOCK_CREDENTIALS2.copayerId,
+            reqCopayer: MOCK_CREDENTIALS.copayerId,
             reqTimestamp: 1446541849132,
             reqSignature: '30440220105072dfda05db6864d9c79d4c873fe1afa266f88326750f2d9ab4d71f2659f8022015922c83fad16adc853c2d7919f0b9a012928c8c80afdbdd8c691470a0a40e19',
             partialData: undefined
@@ -823,13 +1014,13 @@ describe('CSClient', function () {
             csclient = new CSClient(creation_opts);
         });
         it('should return string', function () {
-            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
             encData.should.be.a('string');
         });
         it('should return encrypted data using sharedEncryptingKey', function () {
-            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
             expect(function () {
-                walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey);
+                walletUtils.decryptMessage(encData, MOCK_CREDENTIALS.sharedEncryptingKey);
             }).to.not.throw();
         });
         it('shoud return correct data', function () {
@@ -837,35 +1028,35 @@ describe('CSClient', function () {
                 hX: 'XwjppXsb4+eQPJzgvthXXJRHXmTsvN+8bm7UqNKmcf8=',
                 req_data: MOCK_BACKUPREQUEST
             };
-            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
-            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS.sharedEncryptingKey));
             decData.should.containSubset(expected);
             Object.keys(decData).should.have.length(4);
             should.exist(decData.data_signature);
             should.exist(decData.encryptedKey);
         });
         it('xPrivKey shoud be encrypted with password', function () {
-            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
-            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS.sharedEncryptingKey));
             var decKey;
             expect(function () {
                 decKey = sjcl.decrypt('WeakPassw0rd', decData.encryptedKey);
             }).to.not.throw();
-            decKey.should.equal(MOCK_CREDENTIALS2.xPrivKey);
+            decKey.should.equal(MOCK_CREDENTIALS.xPrivKey);
         });
         it('shoud sign data', function () {
-            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS2, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
-            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS2.sharedEncryptingKey));
+            var encData = csclient._prepareBackupPartialData(MOCK_CREDENTIALS, 'WeakPassw0rd', MOCK_BACKUPREQUEST);
+            var decData = JSON.parse(walletUtils.decryptMessage(encData, MOCK_CREDENTIALS.sharedEncryptingKey));
             var test = decData.data_signature;
             delete decData.data_signature;
-            walletUtils.verifyMessage(JSON.stringify(decData), test, MOCK_CREDENTIALS2.requestPubKey).should.be.true;
+            walletUtils.verifyMessage(JSON.stringify(decData), test, MOCK_CREDENTIALS.requestPubKey).should.be.true;
         });
     });
 
     describe('.buildBackupData', function () {
         var MOCK_BACKUPREQUEST = {
             reqId: 'g8rmz7sl9qw',
-            reqCopayer: MOCK_CREDENTIALS2.copayerId,
+            reqCopayer: MOCK_CREDENTIALS.copayerId,
             reqTimestamp: 1446541849132,
             reqSignature: '30440220105072dfda05db6864d9c79d4c873fe1afa266f88326750f2d9ab4d71f2659f8022015922c83fad16adc853c2d7919f0b9a012928c8c80afdbdd8c691470a0a40e19',
             partialData: '{"iv":"X1mYOCzyvL5oigT8sv+4oA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"Zp/nnQpGM+0DP2KiUwNCOEDzDNSeLLobIWWE6YROqn7c75uveaGiJIPwPZIHUXLQ/9QOoydu7+1+POY0J0law2VM39E3pE5R/5tgpgui++yUCSILe2WBpCAW9hY0fFjvtl/SXmPtjohl2k9kjGyYzxkmGv8bwvLnE+88JrvI2IothgIYNWqdGlOpQXD0YCYC4pvyZUKbHu3AegWlJ23/f8tKvwZMVb09ctd5Bwvtrsx82gs27G2H2lD66GWjKb0JcjHt3ZbDpczZsvXIbvsYGOdQTL78tuzz09NfOezNbycWimxb17aSLuPerEouIlWsNcuM9s+/EeR/XkTFXQ67jsPoY4E4WCXFn13iFrNG/SHlHhu+t/WvOuYD54o9y2cFnz/bsbmDxhTUVgoYLGJPOaRmeQjQ1jhl4nkNFsMZtdRPrXu3YJ9wtBsfXnRSTOirKfSR+DiFW8ExPi0CI2m9q5GuW7raLkpe/r80VyumRUMc+NtIa0dmJc5Hn7q4CTzE7eT9kbVE2CF5z5vP4jiT9kTUUTnSzGsO8Nnj+RqED7Ilw6Um2DtcPN2q0SO3Y3kHnBgMmVfoU4T/L87Aw7qL/4e8Tz0kSrSVVfmA6BrefXTJxv3Mo+prij0NZ8sjWoMYllbGfyQXEokb8gq9bl+sgy06ZBHDw/9JRLK/F8NqZlFiwrTnVkCbVxzN0SmLNgwj9E/tMcTEFHIma2C4xDjz5e/8uQO0HcXChLBIeuhhGvPzb/Zm9VjVjLV9FbQLxwzIjXpO8t8o/B9/qFVAFLaS+MdrbFFVRtGm2/+eyk0JG/0GqCqavzp3OslAXSO77pNgL8qGuN0TOSHIoPsyccQvX7y0nvh2/LKeInUhYvoMsKPveOyqYVvThmzQkvngFg8K4Fnk/xMLRJHyf4qaLnGVw7zxoB4IpRiXeD989jaoCdHjCuoSG22j8/HIRPXzJc3US/FOnsiuU8z4Vy52J5pLPGKEKr13xlUEEfhcJtK7aTaoQLTNAI7SoPVyWkxyut7moD94o4dvSNz4/hywx/kageFFlr3jpIDzs1gQiSnahP09dAUmbjAxLDJs42NxupxSBVmfpRZhjxKgxtbKyUr7d5XXLtYvv86m9RE4BeDnomXKV0qd2p7oX8imdj/WipIQOiXN9HmfiQ=="}'
@@ -876,7 +1067,7 @@ describe('CSClient', function () {
         };
         it('should return backup data', function () {
             var csclient = new CSClient(creation_opts);
-            var data = csclient.buildBackupData(MOCK_CREDENTIALS2, MOCK_BACKUPREQUEST);
+            var data = csclient.buildBackupData(MOCK_CREDENTIALS, MOCK_BACKUPREQUEST);
             data.should.containSubset(MOCK_FULLBACKUPDATA);
             should.exist(data.encPrivKey2);
             Object.keys(data).should.have.length(3);
@@ -884,9 +1075,9 @@ describe('CSClient', function () {
         it('should return encrypted xPrivKey', function () {
             var hX = 'XwjppXsb4+eQPJzgvthXXJRHXmTsvN+8bm7UqNKmcf8=';
             var csclient = new CSClient(creation_opts);
-            var data = csclient.buildBackupData(MOCK_CREDENTIALS2, MOCK_BACKUPREQUEST);
+            var data = csclient.buildBackupData(MOCK_CREDENTIALS, MOCK_BACKUPREQUEST);
             var dec = sjcl.decrypt(hX, data.encPrivKey2);
-            dec.should.equal(MOCK_CREDENTIALS2.xPrivKey);
+            dec.should.equal(MOCK_CREDENTIALS.xPrivKey);
         });
         //TODO more tests
     });
@@ -899,23 +1090,23 @@ describe('CSClient', function () {
         beforeEach(function () {
             csclient = new CSClient(creation_opts);
             timestamp = Date.now();
-            getParams = csclient._createBackupRequestParams(MOCK_CREDENTIALS2.walletId, MOCK_REQID, timestamp);
-            csclient._signRequest(MOCK_CREDENTIALS2, getParams);
+            getParams = csclient._createBackupRequestParams(MOCK_CREDENTIALS.walletId, MOCK_REQID, timestamp);
+            csclient._signRequest(MOCK_CREDENTIALS, getParams);
             MOCK_BACKUPREQUEST = {
                 reqId: MOCK_REQID,
-                reqCopayer: MOCK_CREDENTIALS2.copayerId,
+                reqCopayer: MOCK_CREDENTIALS.copayerId,
                 reqTimestamp: timestamp,
                 reqSignature: getParams.headers['x-signature'],
                 partialData: '{"iv":"ms3g+1pSsNfK4KQCRzfcRA==","v":1,"iter":1,"ks":128,"ts":64,"mode":"ccm","adata":"","cipher":"aes","ct":"HqxZsZS/PVNCCcV6j9PLWe1QQlEIVT1fpj5Ai1R66WjsBAlB37B7OT92EiQCVpS001oLHrrtsMgq/5vMoXfoNZ/nbhxhOxItPDB6vpOccAWfDYLXjsXU4vmZ4QxvxcIdXw28r8T2NCGX3ZcCkANdZ4+oXSHC9hMkd3Q4DK4ux2VkRzIBMHWvFkFotDYr+VJKNsuR3s5uui9N2ngRUnaWkxg05D56EiWPL9n4VYnCI9pVhQaEiWk3v+BVg73BcXWG4Co7jXzeHjJGdPTDUGsx5NrL5yfC3DWrZknynmELheSuerKTZIU6/LcrBelJwl3+XkUW5HIBnEw02Y9/YileN2I+wHdFKLujKg/acE+heOOgJK8NJD2MhomiNxBJdox8drZToP3X3U6k8D0K6Kze1NPsD3ywq5EUG4if3+LmGTRbOJ6vFZrzfSGKGDvIx30b6uTDZGn4aEd/M7PAiVAC/PAsJwOhHkiXSyF5Be5xozMv+TrjMe8RD6xdtjYT5pHYfKU65Z8o+bi/ehEBV9NWdHX8d2WTA7ZBgx6QB1aiFeNenJBmp77MKbSVcdNeJoLMGSdbuXuxT1+uAHXBJDiT0h1Hp0/tdtQp7Nd1jk2SIEGSM7fgojbQA9ZsuAD0ZEaM0TnGjJa9EQ6lEUSHbbbv/xd2xdw4mDbNk2dAA+kj24F9hTUrI8oTvs5ZTjqPMV12ouhnPG0oIlX5W+VwqSxFk0CgXbUb2XEp5oLyOaSjAKVOCUSCk8xg5uyPfVYTe85qlE6WXPV27dYF5St3JqDrjYJgAms1n+ug+ijdehMGPdW863qSpnDrgyOVIf1/BLJyP688eH0iVr6A2AEl1R/mI0EQgPJYMnn/cVFsqE8eAZHiguq8uemHGbpROSC4a0z+vwzmjK28vRXhK9+SZhJ8MwN1xVPzAEb4fBbTilGIWtXsIjWdjzfq4Zfs4qnPyiPG1b+W1ypI5wzWeIqe6XZGiqHz"}'
             };
         });
         it('should return true', function () {
-            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS2)
+            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS)
                 .should.be.true;
         });
         it('should return false', function () {
             MOCK_BACKUPREQUEST.reqId = '-wrong-id-';
-            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS2)
+            csclient._verifyBackupRequestSignature(MOCK_BACKUPREQUEST, MOCK_CREDENTIALS)
                 .should.be.false;
         });
     });
