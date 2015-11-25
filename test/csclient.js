@@ -1114,5 +1114,57 @@ describe('CSClient', function () {
     describe('.decryptBackupData', function () {
         //TODO tests for decryptBackupData()
     });
+
+    describe('.processTxps', function () {
+        var MOCK_HTTP_RESPONSE = {
+            result: 'Partial error',
+            verdicts: {
+                '01448365052759fc58843e-e651-493a-bd5e-3d87ae779bd8': 'signed',
+                '09876543210987ab45263d-b437-000a-eee3-035d89b0a3ff': 'over spending limit',
+                '4632908614509860124845-5472-1361-5128-981609404165': 'Error',
+            }
+        };
+
+        it('should return error with null argument', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.processTxps(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.processTxps(credentials, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/txps';
+            testHttpRequestCall('GET', url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return the right data', function (done) {
+            testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return null data', function (done) {
+            testRetunedData({}, null, done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if bad response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.processTxps(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
 });
 
