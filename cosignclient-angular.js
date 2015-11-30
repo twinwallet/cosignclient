@@ -5,7 +5,7 @@ var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
 
-cscModule.constant('MODULE_VERSION', '0.5.0');
+cscModule.constant('MODULE_VERSION', '0.5.1');
 
 /**
  * Service factory.
@@ -50,19 +50,24 @@ var io = require('socket.io-client');
 
 /**
  *
- * @param opts
+ * @param opts.baseUrl
+ * @param opts.httpRequest
+ * @param opts.bwclibs.Bitcore
+ * @param opts.bwclibs.Utils
+ * @param opts.bwclibs.sjcl
  * @constructor
  */
 function CSClient(opts) {
-    if (!opts || !opts.baseUrl || !opts.httpRequest || !opts.bwutils || !opts.sjcl)
+    if (!opts || !opts.baseUrl || !opts.httpRequest || !opts.bwclibs || !opts.bwclibs.Bitcore || !opts.bwclibs.Utils || !opts.bwclibs.sjcl)
         throw new Error('missing parameter');
 
     var urlobj = url.parse(opts.baseUrl);
     this.baseHost = urlobj.host;
     this.baseUrl = urlobj.href;
     this.httpRequest = opts.httpRequest;
-    this.bwutils = opts.bwutils;
-    this.sjcl = opts.sjcl;
+    this.Bitcore = opts.bwclibs.Bitcore;
+    this.bwutils = opts.bwclibs.Utils;
+    this.sjcl = opts.bwclibs.sjcl;
 }
 
 CSClient.prototype._signRequest = function (credentials, params) {
@@ -112,7 +117,7 @@ CSClient.prototype.joinWallet = function (credentials, cb) {
     self.getHash(credentials, function (err, hash) {
         if (err) return cb(err);
         var signature = self.bwutils.signMessage(hash, credentials.walletPrivKey);
-        var walletPubKey = self.bwutils.Bitcore.PrivateKey.fromString(credentials.walletPrivKey).toPublicKey().toString();
+        var walletPubKey = self.Bitcore.PrivateKey.fromString(credentials.walletPrivKey).toPublicKey().toString();
         var data = {
             copayerHashSignature: signature,
             walletPubKey: walletPubKey,
@@ -140,10 +145,10 @@ CSClient.prototype.joinWallet = function (credentials, cb) {
 // join v2
 
 CSClient.prototype.extractServerEntropy = function (credentials) {
-    var hdk = this.bwutils.Bitcore.HDPrivateKey(credentials.xPrivKey);
+    var hdk = this.Bitcore.HDPrivateKey(credentials.xPrivKey);
     var buff = Buffer.concat([hdk._buffers.privateKey, hdk._buffers.chainCode]);
     if (buff.length == 64) {
-        var e = this.bwutils.Bitcore.crypto.Hash.sha256hmac(buff, new Buffer('Server key derivation'));
+        var e = this.Bitcore.crypto.Hash.sha256hmac(buff, new Buffer('Server key derivation'));
         return e.toString('base64');
     } else
         return null;
@@ -153,7 +158,7 @@ CSClient.prototype.joinServerFromDevice1 = function (credentials, cb) {
     if (invalidCredentials(credentials) || !credentials.walletPrivKey) return cb(new Error('incomplete credentials'));
     var self = this;
     var walletId = credentials.walletId;
-    var walletPubKey = self.bwutils.Bitcore.PrivateKey.fromString(credentials.walletPrivKey).toPublicKey().toString();
+    var walletPubKey = self.Bitcore.PrivateKey.fromString(credentials.walletPrivKey).toPublicKey().toString();
     var data = {
         walletId: walletId,
         copayerId1: credentials.copayerId,
@@ -405,7 +410,7 @@ CSClient.prototype.createBackupRequest = function (credentials, cb) {
 };
 
 CSClient.prototype._deriveHX = function (backupPassword, xPrivKey) {
-    var privKey = this.bwutils.Bitcore.HDPrivateKey(xPrivKey).privateKey.toString();
+    var privKey = this.Bitcore.HDPrivateKey(xPrivKey).privateKey.toString();
     var saltBits = this.sjcl.codec.hex.toBits(privKey);
     var hX = this.sjcl.misc.pbkdf2(backupPassword, saltBits, 10000, 256);
     return hX;
