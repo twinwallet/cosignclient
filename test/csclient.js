@@ -10,7 +10,7 @@ chai.use(chaiSubset);
 var bwclient = require('bitcore-wallet-client');
 var Credentials = require('bitcore-wallet-client/lib/credentials');
 var walletUtils = bwclient.Utils;
-var Bitcore = walletUtils.Bitcore;
+var Bitcore = bwclient.Bitcore;
 var sjcl = bwclient.sjcl;
 var io = require('socket.io-client');
 var CSClient = require('../lib/csclient');
@@ -80,8 +80,11 @@ describe('CSClient', function () {
     var MOCK_OPTS = {
         baseUrl: 'http://localhost:1234/cosign',
         httpRequest: MOCK_REQUEST_NULL,
-        bwutils: walletUtils,
-        sjcl: sjcl
+        bwclibs: {
+            Bitcore: bwclient.Bitcore,
+            Utils: walletUtils,
+            sjcl: sjcl
+        }
     };
     var creation_opts;
     var MOCK_HTTP_RESPONSE = {
@@ -251,7 +254,9 @@ describe('CSClient', function () {
             csclient.baseUrl.should.equal('http://localhost:1234/cosign');
             csclient.baseHost.should.equal('localhost:1234');
             csclient.httpRequest.should.equal(MOCK_OPTS.httpRequest);
-            csclient.bwutils.should.equal(MOCK_OPTS.bwutils);
+            csclient.Bitcore.should.equal(MOCK_OPTS.bwclibs.Bitcore);
+            csclient.bwutils.should.equal(MOCK_OPTS.bwclibs.Utils);
+            csclient.sjcl.should.equal(MOCK_OPTS.bwclibs.sjcl);
         });
     });
 
