@@ -1171,5 +1171,222 @@ describe('CSClient', function () {
         });
     });
 
+    describe('.postNotice', function () {
+        var MOCK_NOTICEID = '505f9ed7c4fe98f5d41b39397f235a8d07515966';
+        var MOCK_HTTP_RESPONSE = {
+            result: 'OK',
+            details: {
+                noticeHash: MOCK_NOTICEID,
+                timestamp: 1234567890
+            }
+        };
+        var MOCK_TYPE = 'test';
+        var MOCK_DATAOBJ = { a: 'x', b: 'y' };
+        var MOCK_DATASTRING = 'some_data';
+        var exp_url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/notices';
+
+        it('should return error with null credentials', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.postNotice(null, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should return error with null type', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, null, MOCK_DATASTRING, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.postNotice(credentials, MOCK_TYPE, MOCK_DATASTRING, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should call httpRequest with correct params (string data)', function (done) {
+            var exp_data = {
+                type: MOCK_TYPE,
+                data: JSON.stringify(MOCK_DATASTRING)
+            };
+            testHttpRequestCall('POST', exp_url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should call httpRequest with correct params (object data)', function (done) {
+            var exp_data = {
+                type: MOCK_TYPE,
+                data: JSON.stringify(MOCK_DATAOBJ)
+            };
+            testHttpRequestCall('POST', exp_url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATAOBJ, callback);
+            });
+        });
+        it('should call httpRequest with correct params (null data)', function (done) {
+            var exp_data = {
+                type: MOCK_TYPE,
+            };
+            testHttpRequestCall('POST', exp_url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, null, callback);
+            });
+        });
+        it('should return error if bad http response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should return error if result is not OK', function (done) {
+            http_response.data = {
+                result: 'error'
+            };
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            testReturnedError(done, function (csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+        it('should return the notice', function (done) {
+            var expectedNotice = {
+                copayerId: MOCK_CREDENTIALS.copayerId,
+                data: JSON.stringify(MOCK_DATASTRING),
+                timestamp: 1234567890,
+                type: MOCK_TYPE,
+                walletId: MOCK_WALLETID,
+                id: MOCK_NOTICEID
+            };
+            testRetunedData(MOCK_HTTP_RESPONSE, expectedNotice, done, function(csclient, callback) {
+                csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, MOCK_DATASTRING, callback);
+            });
+        });
+    });
+
+    describe('.deleteNotice', function () {
+        var MOCK_NOTICEID = '505f9ed7c4fe98f5d41b39397f235a8d07515966';
+        var MOCK_HTTP_RESPONSE = {
+            result: 'OK',
+        };
+        var MOCK_TYPE = 'test';
+
+        it('should return error with null credentials', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.deleteNotice(null, MOCK_NOTICEID, callback);
+            });
+        });
+        it('should return error with null noticeId', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.deleteNotice(credentials, MOCK_NOTICEID, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var exp_url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/notices/' + MOCK_NOTICEID;
+            testHttpRequestCall('DELETE', exp_url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
+            });
+        });
+        it('should return error if bad http response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
+            });
+        });
+        it('should return error if result is not OK', function (done) {
+            http_response.data = {
+                result: 'error'
+            };
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            testReturnedError(done, function (csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
+            });
+        });
+    });
+
+    describe('.fetchNotices', function () {
+        var MOCK_NOTICEID = '505f9ed7c4fe98f5d41b39397f235a8d07515966';
+        var MOCK_TYPE = 'test';
+        var MOCK_DATASTRING = 'some_data';
+        var MOCK_HTTP_RESPONSE = {
+            result: 'OK',
+            notices: [
+                {
+                    copayerId: MOCK_CREDENTIALS.copayerId,
+                    data: JSON.stringify(MOCK_DATASTRING),
+                    timestamp: 1234567890,
+                    type: MOCK_TYPE,
+                    walletId: MOCK_WALLETID,
+                    id: MOCK_NOTICEID
+                },
+            ]
+        };
+        var expectedNotices = [
+            {
+                copayerId: MOCK_CREDENTIALS.copayerId,
+                data: MOCK_DATASTRING,
+                timestamp: 1234567890,
+                type: MOCK_TYPE,
+                walletId: MOCK_WALLETID,
+                id: MOCK_NOTICEID
+            },
+        ];
+
+        it('should return error with null credentials', function (done) {
+            testReturnedError(done, function (csclient, callback) {
+                csclient.fetchNotices(null, callback);
+            });
+        });
+        it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
+            csclient.fetchNotices(credentials, callback);
+        });
+        it('should terminate without error', function (done) {
+            testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should call httpRequest with correct params', function (done) {
+            var exp_url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/notices';
+            testHttpRequestCall('GET', exp_url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if bad http response', function (done) {
+            testBadHttpResponse(done, function(csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if result is not OK', function (done) {
+            http_response.data = {
+                result: 'error'
+            };
+            creation_opts.httpRequest = sinon.stub().returns(successHttpHelper(http_response));
+            testReturnedError(done, function (csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return error if http error', function (done) {
+            testHttpError(done, function(csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+        it('should return the array of notices', function (done) {
+            testRetunedData(MOCK_HTTP_RESPONSE, expectedNotices, done, function(csclient, callback) {
+                csclient.fetchNotices(MOCK_CREDENTIALS, callback);
+            });
+        });
+    });
+
 });
 
