@@ -1289,8 +1289,8 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var exp_url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/notices/' + MOCK_NOTICEID;
-            testHttpRequestCall('DELETE', exp_url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
+            var exp_url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/notices';
+            testHttpRequestCall('DELETE', exp_url, {noticeId: MOCK_NOTICEID}, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.deleteNotice(MOCK_CREDENTIALS, MOCK_NOTICEID, callback);
             });
         });
