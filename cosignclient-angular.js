@@ -5,7 +5,7 @@ var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
 
-cscModule.constant('MODULE_VERSION', '0.6.0');
+cscModule.constant('MODULE_VERSION', '0.6.1');
 
 /**
  * Service factory.
@@ -662,13 +662,13 @@ CSClient.prototype.postNotice = function (credentials, type, data, cb) {
     var self = this;
     if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
     if (!_.isString(type)) cb(new Error('invalid type'));
-    if (!_.isNull(data)) data = JSON.stringify(data);
+    var jsonData = _.isNull(data) ? data : JSON.stringify(data);
     var params = {
         method: 'POST',
         url: this.baseUrl + '/v2/wallets/' + credentials.walletId + '/notices',
         data: {
             type: type,
-            data: data
+            data: jsonData
         }
     };
     this._signRequest(credentials, params);
@@ -687,7 +687,7 @@ CSClient.prototype.postNotice = function (credentials, type, data, cb) {
                 // lexical order of fields for hashing
                 var notice = {
                     copayerId: credentials.copayerId,
-                    data: data,
+                    data: jsonData,
                     timestamp: rData.details.timestamp,
                     type: type,
                     walletId: credentials.walletId
@@ -698,6 +698,7 @@ CSClient.prototype.postNotice = function (credentials, type, data, cb) {
                     // should return error?
                 }
                 notice.id = rData.details.noticeHash;
+                notice.data = data;
                 cb(null, notice);
             }
         }, function errorCB(response) {
