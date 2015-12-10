@@ -3,7 +3,9 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-browserify');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-contrib-clean');
-    grunt.registerTask('default', ['browserify', 'uglify']);
+    grunt.loadNpmTasks('grunt-version');
+
+    grunt.registerTask('default', ['version','browserify', 'uglify']);
 
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
@@ -24,6 +26,17 @@ module.exports = function (grunt) {
             files: 'index-angular.js',
             tasks: ['default']
         },
-        clean: ['cosignclient-angular.js', 'cosignclient-angular.min.js']
+        clean: ['cosignclient-angular.js', 'cosignclient-angular.min.js'],
+        version: {
+            bower: {
+                src: ['bower.json']
+            },
+            angular: {
+                options: {
+                    prefix: "cscModule.constant\\('MODULE_VERSION', '"
+                },
+                src: ['index-angular.js']
+            }
+        }
     });
 };
