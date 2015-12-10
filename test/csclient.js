@@ -1224,6 +1224,7 @@ describe('CSClient', function () {
         it('should call httpRequest with correct params (null data)', function (done) {
             var exp_data = {
                 type: MOCK_TYPE,
+                data: null
             };
             testHttpRequestCall('POST', exp_url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.postNotice(MOCK_CREDENTIALS, MOCK_TYPE, null, callback);
@@ -1251,7 +1252,7 @@ describe('CSClient', function () {
         it('should return the notice', function (done) {
             var expectedNotice = {
                 copayerId: MOCK_CREDENTIALS.copayerId,
-                data: JSON.stringify(MOCK_DATASTRING),
+                data: MOCK_DATASTRING,
                 timestamp: 1234567890,
                 type: MOCK_TYPE,
                 walletId: MOCK_WALLETID,
@@ -1316,19 +1317,29 @@ describe('CSClient', function () {
     });
 
     describe('.fetchNotices', function () {
-        var MOCK_NOTICEID = '505f9ed7c4fe98f5d41b39397f235a8d07515966';
+        var MOCK_NOTICEID1 = '33a80f3286204d928e497d5ff42fbc73580a7b56';
+        var MOCK_NOTICEID2 = '1e4b24ac215a578808b1875e0db3d4d5423b74a0';
         var MOCK_TYPE = 'test';
         var MOCK_DATASTRING = 'some_data';
+        var MOCK_DATAOBJ = { a: 'x', b: 'y' };
         var MOCK_HTTP_RESPONSE = {
             result: 'OK',
             notices: [
                 {
                     copayerId: MOCK_CREDENTIALS.copayerId,
                     data: JSON.stringify(MOCK_DATASTRING),
-                    timestamp: 1234567890,
+                    timestamp: 111111111,
                     type: MOCK_TYPE,
                     walletId: MOCK_WALLETID,
-                    id: MOCK_NOTICEID
+                    id: MOCK_NOTICEID1
+                },
+                {
+                    copayerId: MOCK_CREDENTIALS.copayerId,
+                    data: JSON.stringify(MOCK_DATAOBJ),
+                    timestamp: 222222222,
+                    type: MOCK_TYPE,
+                    walletId: MOCK_WALLETID,
+                    id: MOCK_NOTICEID2
                 },
             ]
         };
@@ -1336,10 +1347,18 @@ describe('CSClient', function () {
             {
                 copayerId: MOCK_CREDENTIALS.copayerId,
                 data: MOCK_DATASTRING,
-                timestamp: 1234567890,
+                timestamp: 111111111,
                 type: MOCK_TYPE,
                 walletId: MOCK_WALLETID,
-                id: MOCK_NOTICEID
+                id: MOCK_NOTICEID1
+            },
+            {
+                copayerId: MOCK_CREDENTIALS.copayerId,
+                data: MOCK_DATAOBJ,
+                timestamp: 222222222,
+                type: MOCK_TYPE,
+                walletId: MOCK_WALLETID,
+                id: MOCK_NOTICEID2
             },
         ];
 
