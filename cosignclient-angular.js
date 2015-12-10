@@ -5,7 +5,7 @@ var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
 
-cscModule.constant('MODULE_VERSION', '0.5.1');
+cscModule.constant('MODULE_VERSION', '0.6.0');
 
 /**
  * Service factory.
@@ -649,6 +649,143 @@ CSClient.prototype.processTxps = function (credentials, cb) {
             cb(response);
         });
 
+};
+
+/**
+ * 
+ * @param credentials
+ * @param type
+ * @param data
+ * @param {function(err,notice)} cb 
+ */
+CSClient.prototype.postNotice = function (credentials, type, data, cb) {
+    var self = this;
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
+    if (!_.isString(type)) cb(new Error('invalid type'));
+    if (!_.isNull(data)) data = JSON.stringify(data);
+    var params = {
+        method: 'POST',
+        url: this.baseUrl + '/v2/wallets/' + credentials.walletId + '/notices',
+        data: {
+            type: type,
+            data: data
+        }
+    };
+    this._signRequest(credentials, params);
+    this.httpRequest(params)
+        .then(function successCB(response) {
+            // expected: { result: 'OK', details: { noticeHash: '', timestamp: '' }}
+            var rData = response.data;
+            if (!_.isPlainObject(rData) || !_.isString(rData.result) ||
+                !rData.details || !rData.details.noticeHash || !rData.details.timestamp)
+            {
+                //TODO logging
+                cb(new Error('Invalid server reply: ' + rData));
+            } else if (rData.result !== 'OK') {
+                cb(new Error(rData.result));
+            } else {
+                // lexical order of fields for hashing
+                var notice = {
+                    copayerId: credentials.copayerId,
+                    data: data,
+                    timestamp: rData.details.timestamp,
+                    type: type,
+                    walletId: credentials.walletId
+                };
+                var hash = self.Bitcore.crypto.Hash.ripemd160(new Buffer(JSON.stringify(notice))).toString('hex');
+                if (hash !== rData.details.noticeHash) {
+                    console.error('Invalid notice hash! Server say ' + rData.details.noticeHash + ' should be ' + hash);
+                    // should return error?
+                }
+                notice.id = rData.details.noticeHash;
+                cb(null, notice);
+            }
+        }, function errorCB(response) {
+            cb(new Error(response.data));
+        });
+};
+
+/**
+ *
+ * @param credentials
+ * @param id credential id
+ * @param {function(err)} cb
+ */
+CSClient.prototype.deleteNotice = function (credentials, id, cb) {
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
+    if (!_.isString(id)) cb(new Error('invalid id'));
+    var params = {
+        method: 'DELETE',
+        url: this.baseUrl + '/v2/wallets/' + credentials.walletId + '/notices/' + id
+    };
+    this._signRequest(credentials, params);
+    this.httpRequest(params)
+        .then(function successCB(response) {
+            var data = response.data;
+            if (!_.isPlainObject(data) || !_.isString(data.result)) {
+                //TODO logging
+                cb(new Error('Invalid server reply: ' + data));
+            } else if (data.result !== 'OK') {
+                cb(new Error(data.result));
+            } else {
+                cb()
+            }
+        }, function errorCB(response) {
+            cb(new Error(response.data));
+        });
+};
+
+/**
+ *
+ * @param credentials
+ * @param {function(err, notices[])} cb
+ */
+CSClient.prototype.fetchNotices = function (credentials, cb) {
+    var self = this;
+    if (invalidCredentials(credentials)) return cb(new Error('incomplete credentials'));
+    var params = {
+        method: 'GET',
+        url: this.baseUrl + '/v2/wallets/' + credentials.walletId + '/notices'
+    };
+    this._signRequest(credentials, params);
+    this.httpRequest(params)
+        .then(function successCB(response) {
+            // expected: { result: 'OK', notices: [...] }
+            var rData = response.data;
+            if (!_.isPlainObject(rData) || !_.isString(rData.result) || !_.isArray(rData.notices)) {
+                //TODO logging
+                cb(new Error('Invalid server reply: ' + rData));
+            } else if (rData.result !== 'OK') {
+                cb(new Error(rData.result));
+            } else {
+                var notices = rData.notices.map(function (n) {
+                    try {
+                        // lexical order of fields for hashing
+                        var notice = {
+                            copayerId: n.copayerId,
+                            data: n.data,
+                            timestamp: n.timestamp,
+                            type: n.type,
+                            walletId: n.walletId
+                        };
+                        var hash = self.Bitcore.crypto.Hash.ripemd160(new Buffer(JSON.stringify(notice))).toString('hex');
+                        if (hash !== n.id) {
+                            console.error('Invalid notice hash! Server say ' + n.id + ' should be ' + hash);
+                            // should return error?
+                        }
+                        notice.data = JSON.parse(n.data);
+                        notice.id = n.id;
+                        return notice;
+                    } catch (err) {
+                        console.error(err);
+                        return null;
+                    }
+                });
+                cb(null, notices);
+            }
+        }, function errorCB(response) {
+            cb(new Error(response.data));
+        });
 };
 
 module.exports = CSClient;
