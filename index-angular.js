@@ -3,6 +3,8 @@
 var cscModule = angular.module('cscModule', []);
 
 var CSClient = require('./lib/csclient');
+var NoticeBoard = require('./lib/noticeBoard');
+var NoticeExtBackup = require('./lib/noticeExtBackup');
 
 cscModule.constant('MODULE_VERSION', '0.6.1');
 
@@ -33,6 +35,12 @@ cscModule.factory('cscService', ['$http', 'bwcService', function ($http, bwcServ
         opts.bwutils = config.walletUtils;
 
         return new CSClient(opts);
+    };
+
+    service.createNoticeBoard = NoticeBoard.create;
+
+    service.getNoticeExtensionBackup = function (noticeBoard) {
+        return new NoticeExtBackup(noticeBoard);
     };
 
     return service;
