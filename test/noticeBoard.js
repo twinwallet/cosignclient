@@ -203,11 +203,16 @@ describe("noticeBoard", function () {
         });
       });
       it('should emit "newNotice/test" event only for added notice', function (done) {
-        var mock = sinon.mock(noticeBoard).expects('emit')
-          .once()
-          .withArgs('newNotice/test', MOCK_NEWNOTICES[1]);
+        sinon.stub(noticeBoard, 'emit');
         noticeBoard.updateNoticeBoard(function (err) {
-          mock.verify();
+          sinon.assert.calledWithExactly(noticeBoard.emit, 'newNotice/test', MOCK_NEWNOTICES[1]);
+          done();
+        });
+      });
+      it('should emit "noticesUpdated" event', function (done) {
+        sinon.stub(noticeBoard, 'emit');
+        noticeBoard.updateNoticeBoard(function (err) {
+          sinon.assert.calledWithExactly(noticeBoard.emit, 'noticesUpdated');
           done();
         });
       });
