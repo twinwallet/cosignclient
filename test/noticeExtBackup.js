@@ -20,7 +20,6 @@ describe("noticeExtBackup", function () {
   var csclient;
   var socket;
   var noticeBoard;
-  var extBackup;
   beforeEach(function () {
     credentials = _.clone(MOCKS.CLIENTS[0].credentials, true);
     csclient = {
@@ -29,21 +28,22 @@ describe("noticeExtBackup", function () {
     };
     socket = new EventEmitter();
     noticeBoard = NoticeBoard.create(csclient, credentials, socket);
-    extBackup = new NoticeExtBackup(noticeBoard);
+    noticeBoard.initExtBackup();
   });
 
-  describe('constructor', function () {
+  describe('.initExtBackup', function () {
     _.forEach({
       'newNotice/backupDevCompleted': '_handlerBackupDevCompleted',
       'newNotice/cancelBackup': '_handlerCancelBackup',
       'newNotice/backupDone': '_handlerBackupDone'
     }, function(fnName, event) {
       it(`should bind ${fnName} to '${event} event`, function () {
+        noticeBoard = NoticeBoard.create(csclient, credentials, socket);
         sinon.spy(noticeBoard, 'on');
         var expected = sinon.stub();
-        var bindStub = NoticeExtBackup.prototype[fnName].bind = sinon.stub().returns(expected);
-        extBackup = new NoticeExtBackup(noticeBoard);
-        sinon.assert.calledWith(bindStub, extBackup);
+        var bindStub = NoticeBoard.prototype[fnName].bind = sinon.stub().returns(expected);
+        noticeBoard.initExtBackup();
+        sinon.assert.calledWith(bindStub, noticeBoard);
         sinon.assert.calledWithExactly(noticeBoard.on, event, expected);
       });
     });
@@ -54,12 +54,12 @@ describe("noticeExtBackup", function () {
       noticeBoard.postNotice = sinon.stub().yields();
     });
     it('should post a "backupInProgress" notice', function () {
-      extBackup.startBackup(function () {
+      noticeBoard.startBackup(function () {
       });
       sinon.assert.calledWith(noticeBoard.postNotice, 'backupInProgress');
     });
     it('should put a backupId in notice data', function () {
-      extBackup.startBackup(function () {
+      noticeBoard.startBackup(function () {
       });
       var noticeData = noticeBoard.postNotice.getCall(0).args[1];
       expect(noticeData.backupId).to.be.a('string');
@@ -82,25 +82,25 @@ describe("noticeExtBackup", function () {
       sinon.stub(noticeBoard, 'deleteNotice');
     });
     it('should not delete cancelBackup notice', function () {
-      extBackup._cleanBackup();
+      noticeBoard._cleanBackup();
       sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
     });
     it('should not delete backupDone notices', function () {
-      extBackup._cleanBackup();
+      noticeBoard._cleanBackup();
       sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '5');
       sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
     });
     it('should not delete unrelated notices', function () {
-      extBackup._cleanBackup();
+      noticeBoard._cleanBackup();
       sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
     });
     it('should delete unrelated backup notices', function () {
-      extBackup._cleanBackup();
+      noticeBoard._cleanBackup();
       sinon.assert.calledWith(noticeBoard.deleteNotice, '6');
       sinon.assert.calledWith(noticeBoard.deleteNotice, '8');
     });
     it('should delete related notices', function () {
-      extBackup._cleanBackup();
+      noticeBoard._cleanBackup();
       sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
       sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
     });
@@ -108,16 +108,16 @@ describe("noticeExtBackup", function () {
 
   describe('.cancelBackup', function () {
     it('should call _cleanBackup()', function () {
-      sinon.spy(extBackup, '_cleanBackup');
-      extBackup.cancelBackup();
-      sinon.assert.calledWithExactly(extBackup._cleanBackup);
+      sinon.spy(noticeBoard, '_cleanBackup');
+      noticeBoard.cancelBackup();
+      sinon.assert.calledWithExactly(noticeBoard._cleanBackup);
     });
     it('should post cancelBackup notice', function () {
       noticeBoard.notices = _.indexBy([
         {id: '2', type: 'backupInProgress', data: {backupId: '12345'}},
       ], 'id');
       sinon.stub(noticeBoard, 'postNotice');
-      extBackup.cancelBackup();
+      noticeBoard.cancelBackup();
       sinon.assert.calledWith(noticeBoard.postNotice, 'cancelBackup', {backupId: '12345'});
     });
   });
@@ -130,29 +130,29 @@ describe("noticeExtBackup", function () {
       ], 'id');
     });
     it('should call _cleanBackup()', function () {
-      sinon.spy(extBackup, '_cleanBackup');
-      extBackup._handlerCancelBackup(MOCK_CANCELNOTICE);
-      sinon.assert.calledOnce(extBackup._cleanBackup);
-      sinon.assert.calledWithExactly(extBackup._cleanBackup, '12345');
+      sinon.spy(noticeBoard, '_cleanBackup');
+      noticeBoard._handlerCancelBackup(MOCK_CANCELNOTICE);
+      sinon.assert.calledOnce(noticeBoard._cleanBackup);
+      sinon.assert.calledWithExactly(noticeBoard._cleanBackup, '12345');
     });
     it('should delete notice', function () {
       sinon.spy(noticeBoard, 'deleteNotice');
-      extBackup._handlerCancelBackup(MOCK_CANCELNOTICE);
+      noticeBoard._handlerCancelBackup(MOCK_CANCELNOTICE);
       sinon.assert.calledOnce(noticeBoard.deleteNotice);
       sinon.assert.calledWithExactly(noticeBoard.deleteNotice, '2');
     });
     it('should ignore self emitted notice', function () {
       sinon.stub(noticeBoard, 'deleteNotice').throws('should not be called');
-      sinon.stub(extBackup, '_cleanBackup').throws('should not be called');
+      sinon.stub(noticeBoard, '_cleanBackup').throws('should not be called');
       var notice = _.clone(MOCK_CANCELNOTICE);
       notice.copayerId = credentials.copayerId;
-      extBackup._handlerCancelBackup(notice);
+      noticeBoard._handlerCancelBackup(notice);
     });
   });
 
   describe('.finishBackup', function () {
     it('should return error if not exists a backupInProgress', function () {
-      extBackup.finishBackup(function (err, notice) {
+      noticeBoard.finishBackup(function (err, notice) {
         expect(err).to.exist;
         expect(err.message).to.equal('No backup notice');
       });
@@ -163,7 +163,7 @@ describe("noticeExtBackup", function () {
         {id: '2', type: 'backupInProgress', data: {backupId: '12345'}},
       ], 'id');
       sinon.stub(noticeBoard, 'postNotice').yieldsAsync(null, MOCK_NOTICE);
-      extBackup.finishBackup(function (err, notice) {
+      noticeBoard.finishBackup(function (err, notice) {
         expect(err).to.not.exist;
         sinon.assert.calledWith(noticeBoard.postNotice, 'backupDevCompleted', {backupId: '12345'});
         done();
@@ -177,23 +177,23 @@ describe("noticeExtBackup", function () {
     it('shold do nothing', function () {
       noticeBoard.notices = _.indexBy([MOCK_NOTICE1], 'id');
       sinon.spy(noticeBoard, 'postNotice');
-      extBackup._handlerBackupDevCompleted({}, MOCK_NOTICE1);
+      noticeBoard._handlerBackupDevCompleted({}, MOCK_NOTICE1);
       sinon.assert.notCalled(noticeBoard.postNotice);
     });
     it('shold post backupDone notice', function () {
       noticeBoard.notices = _.indexBy([MOCK_NOTICE1, MOCK_NOTICE2], 'id');
       sinon.spy(noticeBoard, 'postNotice');
-      extBackup._handlerBackupDevCompleted(MOCK_NOTICE1);
+      noticeBoard._handlerBackupDevCompleted(MOCK_NOTICE1);
       sinon.assert.calledWith(noticeBoard.postNotice, 'backupDone');
     });
   });
 
   describe('._handlerBackupDone', function () {
     it('should call _cleanBackup()', function () {
-      sinon.spy(extBackup, '_cleanBackup');
-      extBackup._handlerBackupDone({id: '3', type: 'backupDone', copayerId: 'x'});
-      sinon.assert.calledOnce(extBackup._cleanBackup);
-      sinon.assert.calledWithExactly(extBackup._cleanBackup);
+      sinon.spy(noticeBoard, '_cleanBackup');
+      noticeBoard._handlerBackupDone({id: '3', type: 'backupDone', copayerId: 'x'});
+      sinon.assert.calledOnce(noticeBoard._cleanBackup);
+      sinon.assert.calledWithExactly(noticeBoard._cleanBackup);
     })
   });
 });
