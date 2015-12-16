@@ -104,13 +104,27 @@ describe("noticeExtBackup", function () {
       sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
       sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
     });
+    it('should terminate async', function(done) {
+      var terminated = 0;
+      noticeBoard.deleteNotice = function (id, cb) {
+        process.nextTick(function () {
+          terminated++;
+          cb();
+        });
+      };
+      noticeBoard._cleanBackup(function(err) {
+        if (err) throw err;
+        terminated.should.equal(4);
+        done();
+      });
+    })
   });
 
   describe('.cancelBackup', function () {
     it('should call _cleanBackup()', function () {
       sinon.spy(noticeBoard, '_cleanBackup');
       noticeBoard.cancelBackup();
-      sinon.assert.calledWithExactly(noticeBoard._cleanBackup);
+      sinon.assert.calledWith(noticeBoard._cleanBackup);
     });
     it('should post cancelBackup notice', function () {
       noticeBoard.notices = _.indexBy([
@@ -120,6 +134,23 @@ describe("noticeExtBackup", function () {
       noticeBoard.cancelBackup();
       sinon.assert.calledWith(noticeBoard.postNotice, 'cancelBackup', {backupId: '12345'});
     });
+    it('should terminate async', function(done) {
+      noticeBoard.notices = _.indexBy([
+        {id: '2', type: 'backupInProgress', data: {backupId: '12345'}},
+      ], 'id');
+      sinon.stub(noticeBoard, 'deleteNotice').yields();
+      var terminated = 0;
+      noticeBoard.postNotice = function (type, data, cb) {
+        process.nextTick(function () {
+          terminated++;
+          cb();
+        });
+      };
+      noticeBoard.cancelBackup(function(err) {
+        expect(terminated).to.equal(1);
+        done();
+      });
+    })
   });
 
   describe('_handlerCancelBackup', function () {
@@ -139,7 +170,7 @@ describe("noticeExtBackup", function () {
       sinon.spy(noticeBoard, 'deleteNotice');
       noticeBoard._handlerCancelBackup(MOCK_CANCELNOTICE);
       sinon.assert.calledOnce(noticeBoard.deleteNotice);
-      sinon.assert.calledWithExactly(noticeBoard.deleteNotice, '2');
+      sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
     });
     it('should ignore self emitted notice', function () {
       sinon.stub(noticeBoard, 'deleteNotice').throws('should not be called');
