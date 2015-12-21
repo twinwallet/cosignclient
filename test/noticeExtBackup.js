@@ -194,18 +194,24 @@ describe("noticeExtBackup", function () {
       sinon.assert.calledOnce(noticeBoard._cleanBackup);
       sinon.assert.calledWithExactly(noticeBoard._cleanBackup, '12345');
     });
-    it('should delete notice', function () {
-      sinon.spy(noticeBoard, 'deleteNotice');
-      noticeBoard._handlerCancelBackup(MOCK_CANCELNOTICE);
-      sinon.assert.calledOnce(noticeBoard.deleteNotice);
-      sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
-    });
-    it('should ignore self emitted notice', function () {
-      sinon.stub(noticeBoard, 'deleteNotice').throws('should not be called');
-      sinon.stub(noticeBoard, '_cleanBackup').throws('should not be called');
+    it('should call _cleanBackup() even if self emmited', function () {
+      sinon.spy(noticeBoard, '_cleanBackup');
       var notice = _.clone(MOCK_CANCELNOTICE);
       notice.copayerId = credentials.copayerId;
       noticeBoard._handlerCancelBackup(notice);
+      sinon.assert.calledWithExactly(noticeBoard._cleanBackup, '12345');
+    });
+    it('should delete cancelBackup notice if not self emitted', function () {
+      sinon.spy(noticeBoard, 'deleteNotice');
+      noticeBoard._handlerCancelBackup(MOCK_CANCELNOTICE);
+      sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
+    });
+    it('should not delete cancelBackup notice if self emitted', function () {
+      sinon.spy(noticeBoard, 'deleteNotice');
+      var notice = _.clone(MOCK_CANCELNOTICE);
+      notice.copayerId = credentials.copayerId;
+      noticeBoard._handlerCancelBackup(notice);
+      sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '3');
     });
   });
 
