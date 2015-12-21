@@ -70,14 +70,14 @@ describe("noticeExtBackup", function () {
   describe('._cleanBackup', function () {
     beforeEach(function () {
       noticeBoard.notices = _.indexBy([
-        {id: '1', type: 'test'},
-        {id: '2', type: 'backupInProgress', data: {backupId: '12345'}},
-        {id: '3', type: 'backupDevCompleted', data: {backupId: '12345'}},
-        {id: '4', type: 'cancelBackup', data: {backupId: '12345'}},
-        {id: '5', type: 'backupDone'},
-        {id: '6', type: 'backupInProgress', data: {backupId: '00001'}},
-        {id: '7', type: 'backupDone'},
-        {id: '8', type: 'backupDevCompleted', data: {backupId: '00002'}},
+        {id: '1', type: 'test', timestamp: 1},
+        {id: '2', type: 'backupInProgress', data: {backupId: '12345'}, timestamp: 2},
+        {id: '3', type: 'backupDevCompleted', data: {backupId: '12345'}, timestamp: 3},
+        {id: '4', type: 'cancelBackup', data: {backupId: '12345'}, timestamp: 4},
+        {id: '5', type: 'backupDone', timestamp: 5},
+        {id: '6', type: 'backupInProgress', data: {backupId: '00001'}, timestamp: 6},
+        {id: '7', type: 'backupDone', timestamp: 7},
+        {id: '8', type: 'backupDevCompleted', data: {backupId: '00002'}, timestamp: 8},
       ], 'id');
       sinon.stub(noticeBoard, 'deleteNotice');
     });
@@ -108,30 +108,54 @@ describe("noticeExtBackup", function () {
     });
     describe('called with backupId', ()  => {
       it('should not delete cancelBackup notice', function () {
-        noticeBoard._cleanBackup('12345');
+        noticeBoard._cleanBackup({backupId: '12345'});
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
       });
       it('should not delete backupDone notices', function () {
-        noticeBoard._cleanBackup('12345');
+        noticeBoard._cleanBackup({backupId: '12345'});
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '5');
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
       });
       it('should not delete unrelated notices', function () {
-        noticeBoard._cleanBackup('12345');
+        noticeBoard._cleanBackup({backupId: '12345'});
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
       });
       it('should not delete unrelated backup notices', function () {
-        noticeBoard._cleanBackup('12345');
+        noticeBoard._cleanBackup({backupId: '12345'});
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '6');
         sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '8');
       });
       it('should delete related notices', function () {
-        noticeBoard._cleanBackup('12345');
+        noticeBoard._cleanBackup({backupId: '12345'});
         sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
         sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
       });
     });
-
+    describe('called with timestamp', ()  => {
+      it('should not delete cancelBackup notice', function () {
+        noticeBoard._cleanBackup({timestamp: 7});
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
+      });
+      it('should delete backupDone notices if older', function () {
+        noticeBoard._cleanBackup({timestamp: 7});
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '5');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
+      });
+      it('should not delete unrelated notices', function () {
+        noticeBoard._cleanBackup({timestamp: 7});
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
+      });
+      it('should delete unrelated backup notices but not newer', function () {
+        noticeBoard._cleanBackup({timestamp: 7});
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '6');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '8');
+      });
+      it('should delete related notices', function () {
+        noticeBoard._cleanBackup({timestamp: 7});
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
+      });
+    });
     it('should terminate async', function(done) {
       var terminated = 0;
       noticeBoard.deleteNotice = function (id, cb) {
@@ -256,9 +280,9 @@ describe("noticeExtBackup", function () {
   describe('._handlerBackupDone', function () {
     it('should call _cleanBackup()', function () {
       sinon.spy(noticeBoard, '_cleanBackup');
-      noticeBoard._handlerBackupDone({id: '3', type: 'backupDone', copayerId: 'x'});
+      noticeBoard._handlerBackupDone({id: '3', type: 'backupDone', copayerId: 'x', timestamp: 1450736323623});
       sinon.assert.calledOnce(noticeBoard._cleanBackup);
-      sinon.assert.calledWithExactly(noticeBoard._cleanBackup);
+      sinon.assert.calledWithExactly(noticeBoard._cleanBackup, {timestamp: 1450736323623});
     })
   });
 });
