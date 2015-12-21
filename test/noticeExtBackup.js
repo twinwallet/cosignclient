@@ -81,29 +81,57 @@ describe("noticeExtBackup", function () {
       ], 'id');
       sinon.stub(noticeBoard, 'deleteNotice');
     });
-    it('should not delete cancelBackup notice', function () {
-      noticeBoard._cleanBackup();
-      sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
+    describe('called without backupId', ()  => {
+      it('should not delete cancelBackup notice', function () {
+        noticeBoard._cleanBackup();
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
+      });
+      it('should not delete backupDone notices', function () {
+        noticeBoard._cleanBackup();
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '5');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
+      });
+      it('should not delete unrelated notices', function () {
+        noticeBoard._cleanBackup();
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
+      });
+      it('should delete unrelated backup notices', function () {
+        noticeBoard._cleanBackup();
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '6');
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '8');
+      });
+      it('should delete related notices', function () {
+        noticeBoard._cleanBackup();
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
+      });
     });
-    it('should not delete backupDone notices', function () {
-      noticeBoard._cleanBackup();
-      sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '5');
-      sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
+    describe('called with backupId', ()  => {
+      it('should not delete cancelBackup notice', function () {
+        noticeBoard._cleanBackup('12345');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '4');
+      });
+      it('should not delete backupDone notices', function () {
+        noticeBoard._cleanBackup('12345');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '5');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '7');
+      });
+      it('should not delete unrelated notices', function () {
+        noticeBoard._cleanBackup('12345');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
+      });
+      it('should not delete unrelated backup notices', function () {
+        noticeBoard._cleanBackup('12345');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '6');
+        sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '8');
+      });
+      it('should delete related notices', function () {
+        noticeBoard._cleanBackup('12345');
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
+        sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
+      });
     });
-    it('should not delete unrelated notices', function () {
-      noticeBoard._cleanBackup();
-      sinon.assert.neverCalledWith(noticeBoard.deleteNotice, '1');
-    });
-    it('should delete unrelated backup notices', function () {
-      noticeBoard._cleanBackup();
-      sinon.assert.calledWith(noticeBoard.deleteNotice, '6');
-      sinon.assert.calledWith(noticeBoard.deleteNotice, '8');
-    });
-    it('should delete related notices', function () {
-      noticeBoard._cleanBackup();
-      sinon.assert.calledWith(noticeBoard.deleteNotice, '2');
-      sinon.assert.calledWith(noticeBoard.deleteNotice, '3');
-    });
+
     it('should terminate async', function(done) {
       var terminated = 0;
       noticeBoard.deleteNotice = function (id, cb) {
