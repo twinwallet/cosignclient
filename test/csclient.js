@@ -534,7 +534,7 @@ describe('CSClient', function () {
     });
 
     describe('.getSpendingLimit', function () {
-        var MOCK_HTTP_RESPONSE = {spendingLimit: 1000, consumed: 222, pendingLimit: 2000, pendingLimitApproved: false};
+        var MOCK_HTTP_RESPONSE = {spendingLimit: 1000, consumed: 222, timeOffset: -10, pending: {spendingLimit: 9999, timeOffset: -10}, pendingApproved: false};
 
         it('should return error with null argument', function (done) {
             testReturnedError(done, function (csclient, callback) {
@@ -550,7 +550,7 @@ describe('CSClient', function () {
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
             testHttpRequestCall('GET', url, undefined, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 csclient.getSpendingLimit(MOCK_CREDENTIALS, callback);
             });
@@ -574,82 +574,84 @@ describe('CSClient', function () {
 
     describe('.requestSpendingLimit', function () {
         var MOCK_HTTP_RESPONSE = {result: 'OK'};
+        var MOCK_CHANGEREQ = {spendingLimit: 9999, timeOffset: -10};
 
         it('should return error with null argument', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                csclient.requestSpendingLimit(null, 100, callback);
+                csclient.requestSpendingLimit(null, MOCK_CHANGEREQ, callback);
             });
         });
         it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
-            csclient.requestSpendingLimit(credentials, 100, callback);
+            csclient.requestSpendingLimit(credentials, MOCK_CHANGEREQ, callback);
         });
         it('should terminate without error', function (done) {
             testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGEREQ, callback);
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
-            testHttpRequestCall('PUT', url, {spendingLimit: 100}, MOCK_CREDENTIALS, done, function(csclient, callback) {
-                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            testHttpRequestCall('PUT', url, MOCK_CHANGEREQ, MOCK_CREDENTIALS, done, function(csclient, callback) {
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGEREQ, callback);
             });
         });
         it('should return correct data', function (done) {
             testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGEREQ, callback);
             });
         });
         it('should return error if bad response', function (done) {
             testBadHttpResponse(done, function(csclient, callback) {
-                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGEREQ, callback);
             });
         });
         it('should return error', function (done) {
             testHttpError(done, function(csclient, callback) {
-                csclient.requestSpendingLimit(MOCK_CREDENTIALS, 100, callback);
+                csclient.requestSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGEREQ, callback);
             });
         });
     });
 
     describe('.confirmSpendingLimit', function () {
         var MOCK_HTTP_RESPONSE = {result: 'OK'};
+        var MOCK_CHANGE_TO_CONFIRM = {spendingLimit: 9999, timeOffset: -1};
 
         it('should return error with null argument', function (done) {
             testReturnedError(done, function (csclient, callback) {
-                csclient.confirmSpendingLimit(null, 100, true, callback);
+                csclient.confirmSpendingLimit(null, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
         it_testsIncompleteCredentials(MOCK_CREDENTIALS,  function(csclient, credentials, callback) {
-            csclient.confirmSpendingLimit(credentials, 100, true, callback);
+            csclient.confirmSpendingLimit(credentials, MOCK_CHANGE_TO_CONFIRM, true, callback);
         });
         it('should terminate without error', function (done) {
             testTerminationWithoutError(MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
         it('should call httpRequest with correct params', function (done) {
-            var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
+            var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId + '/spendinglimit'
             var exp_data = {
-                spendingLimit: 100,
-                status: 'confirm'
+                pending: MOCK_CHANGE_TO_CONFIRM,
+                action: 'confirm'
             };
             testHttpRequestCall('PATCH', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
-                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
         it('should return correct data', function (done) {
             testRetunedData(MOCK_HTTP_RESPONSE, MOCK_HTTP_RESPONSE, done, function(csclient, callback) {
-                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
         it('should return error if bad response', function (done) {
             testBadHttpResponse(done, function(csclient, callback) {
-                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
         it('should return error', function (done) {
             testHttpError(done, function(csclient, callback) {
-                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, 100, true, callback);
+                csclient.confirmSpendingLimit(MOCK_CREDENTIALS, MOCK_CHANGE_TO_CONFIRM, true, callback);
             });
         });
     });
