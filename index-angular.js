@@ -6,7 +6,7 @@ var CSClient = require('./lib/csclient');
 var NoticeBoard = require('./lib/noticeBoard');
 var NoticeExtBackup = require('./lib/noticeExtBackup');
 
-cscModule.constant('MODULE_VERSION', '0.6.3');
+cscModule.constant('MODULE_VERSION', '0.7.0');
 
 /**
  * Service factory.
