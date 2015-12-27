@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var EventEmitter = require('events');
+var async = require('async');
 var sinon = require('sinon');
 var chai = require('chai');
 var assert = chai.assert,
@@ -214,6 +215,73 @@ describe("noticeBoard", function () {
         noticeBoard.updateNoticeBoard(function (err) {
           sinon.assert.calledWithExactly(noticeBoard.emit, 'noticesUpdated');
           done();
+        });
+      });
+      describe('on concurrent calls', () => {
+        var MOCK_NEWNOTICES2 = [
+          {id: '_1_', type: 'test'},
+          {id: '_2_', type: 'test'},
+          {id: '_3_', type: 'test2'},
+        ];
+        beforeEach(()=> {
+          csclient.fetchNotices = sinon.stub();
+        });
+        it('events should not go back', done => {
+          // use async yields on first call and sync yield on second call to simulate a delay on first reply
+          var stub = csclient.fetchNotices = sinon.stub();
+          stub.onFirstCall().yieldsAsync(null, MOCK_NEWNOTICES);
+          stub.onSecondCall().yields(null, MOCK_NEWNOTICES2);
+          var expected = _.indexBy(MOCK_NEWNOTICES, 'id');
+          noticeBoard.updateNoticeBoard(function (err) {
+            expect(noticeBoard.notices).to.deep.equal(expected);
+            done();
+          });
+          noticeBoard.updateNoticeBoard(function (err) {
+            // update expected so if the first reply is delayed should expects MOCK_NEWNOTICES2
+            expected = _.indexBy(MOCK_NEWNOTICES2, 'id');
+            expect(noticeBoard.notices).to.deep.equal(expected);
+          });
+        });
+        it('should not notify 2 times the same notice #1', done => {
+          // use async yields on first call and sync yield on second call to simulate a delay on first reply
+          var stub = csclient.fetchNotices = sinon.stub();
+          stub.onFirstCall().yieldsAsync(null, MOCK_NEWNOTICES);
+          stub.onSecondCall().yields(null, MOCK_NEWNOTICES2);
+          stub.onThirdCall().yieldsAsync(null, MOCK_NEWNOTICES2);
+          sinon.stub(noticeBoard, 'emit')
+            .withArgs('newNotice/test2')
+            .onSecondCall()
+            .throws(new Error('test2 emitted a second time'));
+          async.parallel([
+              cb => noticeBoard.updateNoticeBoard(() => cb()),
+              cb => noticeBoard.updateNoticeBoard(() => cb()),
+            ],
+            ()=> noticeBoard.updateNoticeBoard(function (err) {
+              sinon.assert.calledWith(noticeBoard.emit, 'newNotice/test2');
+              done();
+            })
+          );
+        });
+        it('should not notify 2 times the same notice #2', done => {
+          // In this test it is supposed that a notice disappears and reappear (no reason to happen this,
+          // but it is better to handle it). This problem is not correlated to concurrent calls to updateNoticeBoard()
+          var stub = csclient.fetchNotices = sinon.stub();
+          stub.onFirstCall().yieldsAsync(null, MOCK_NEWNOTICES2);
+          stub.onSecondCall().yieldsAsync(null, MOCK_NEWNOTICES);
+          stub.onThirdCall().yieldsAsync(null, MOCK_NEWNOTICES2);
+          sinon.stub(noticeBoard, 'emit')
+            .withArgs('newNotice/test2')
+            .onSecondCall()
+            .throws(new Error('test2 emitted a second time'));
+          async.parallel([
+              cb => noticeBoard.updateNoticeBoard(() => cb()),
+              cb => noticeBoard.updateNoticeBoard(() => cb()),
+            ],
+            ()=> noticeBoard.updateNoticeBoard(function (err) {
+              sinon.assert.calledWith(noticeBoard.emit, 'newNotice/test2');
+              done();
+            })
+          );
         });
       });
     });
