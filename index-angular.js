@@ -32,7 +32,7 @@ cscModule.factory('cscService', ['$http', 'bwcService', function ($http, bwcServ
         opts = opts || {};
         opts.baseUrl = opts.baseUrl || config.baseUrl;
         opts.httpRequest = $http;
-        var bwclibs = opts.bwclibs || {};
+        var bwclibs = opts.bwclibs = opts.bwclibs || {};
         bwclibs.Utils = bwclibs.Utils || config.walletUtils;
 
         return new CSClient(opts);
