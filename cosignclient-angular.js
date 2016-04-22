@@ -7,7 +7,7 @@ var CSClient = require('./lib/csclient');
 var NoticeBoard = require('./lib/noticeBoard');
 var NoticeExtBackup = require('./lib/noticeExtBackup');
 
-cscModule.constant('MODULE_VERSION', '0.7.2');
+cscModule.constant('MODULE_VERSION', '0.7.3');
 
 /**
  * Service factory.
@@ -16,25 +16,28 @@ cscModule.constant('MODULE_VERSION', '0.7.2');
 cscModule.factory('cscService', ['$http', 'bwcService', function ($http, bwcService) {
     var service = {};
 
-    var config = {
+    var defaults = {
         baseUrl: 'http://localhost:3001/cosign/api',
-        walletUtils: bwcService.getUtils()
+        bwclibs: {
+            Bitcore: bwcService.getBitcore(),
+            Utils: bwcService.getUtils(),
+            sjcl: bwcService.getSJCL()
+        }
     };
 
     service.setBaseUrl = function (url) {
-        config.baseUrl = url;
+        defaults.baseUrl = url;
     };
 
     service.setWalletUtils = function (wu) {
-        config.walletUtils = wu;
+        defaults.walletUtils = wu;
     };
 
     service.getCSClient = function (opts) {
         opts = opts || {};
-        opts.baseUrl = opts.baseUrl || config.baseUrl;
+        opts.baseUrl = opts.baseUrl || defaults.baseUrl;
         opts.httpRequest = $http;
-        var bwclibs = opts.bwclibs = opts.bwclibs || {};
-        bwclibs.Utils = bwclibs.Utils || config.walletUtils;
+        opts.bwclibs = angular.extend(opts.bwclibs || {}, defaults.bwclibs, opts.bwclibs);
 
         return new CSClient(opts);
     };

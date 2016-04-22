@@ -1,6 +1,6 @@
 {
   "name": "CoSignClient",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Client library for CoSignServer service",
   "author": "Marco Polci",
   "license": "MIT",
