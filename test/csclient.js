@@ -347,7 +347,7 @@ describe('CSClient', function () {
         it('should call httpRequest with correct params', function (done) {
             var url = MOCK_OPTS.baseUrl + '/v1/wallets/' + MOCK_CREDENTIALS.walletId
             var exp_data = {
-                copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
+                copayerHashSignature: '3045022100e76d38ef08ef7c8317577ae9c571858e5113f5b0ed9e2e968c05035e2e84891202200c3d3d81cd86c87ad3a398da0e3154b2f0f6ae997537a27b6843c4adb87f12ed',
                 walletPubKey: MOCK_WALLETPUBKEY,
                 sharedEncryptingKey: MOCK_CREDENTIALS.sharedEncryptingKey
             };
@@ -506,7 +506,7 @@ describe('CSClient', function () {
             var url = MOCK_OPTS.baseUrl + '/v2/wallets/' + MOCK_CREDENTIALS.walletId;
             var exp_data = {
                 walletId: MOCK_WALLETID,
-                copayerHashSignature: '3045022100fe22b54f14c41a0b37d99526f7c0e0dd1f260859dc6d8ab0406ec66a66e4c9b3022002f3553c55d6938507cc40372152c28f2284b472339051963781ebc91692a2e3',
+                copayerHashSignature: '3045022100e76d38ef08ef7c8317577ae9c571858e5113f5b0ed9e2e968c05035e2e84891202200c3d3d81cd86c87ad3a398da0e3154b2f0f6ae997537a27b6843c4adb87f12ed',
             };
             testJoinHttpRequest('POST', url, exp_data, MOCK_CREDENTIALS, done, function(csclient, callback) {
                 sinon.stub(csclient, '_joinV2Step2').yields(null, MOCK_COPAYERHASH);
@@ -711,13 +711,17 @@ describe('CSClient', function () {
             });
             it('should emit "authorize" event', function(done) {
                 socket.once = sinon.stub();
-                socket.once.withArgs('challenge').yieldsAsync('8adc3675-ca8a-4709-bdd2-b41bd8e4e879');
+                var NONCE = '8adc3675-ca8a-4709-bdd2-b41bd8e4e879';
+                var MOCKSIGN = 'xxxx_SingaturePlaceholder_xxxx';
+                csclient.bwutils = { signMessage: sinon.stub().throws('invalid signMessage parameters') };
+                csclient.bwutils.signMessage.withArgs(NONCE, MOCK_CREDENTIALS.requestPrivKey).returns(MOCKSIGN);
+                socket.once.withArgs('challenge').yieldsAsync(NONCE);
                 socket.emit = function(event, data) {
                     event.should.equals('authorize');
                     data.should.deep.equals({
                         copayerId: MOCK_CREDENTIALS.copayerId,
-                        message: '8adc3675-ca8a-4709-bdd2-b41bd8e4e879',
-                        signature: '304402202049439cfc9559fba57e5be916679c6e8a3b4f825bd14ec288e4f02d7af4faa402204893a083a3ab416afe8ba63c96905dccb3e334e86965510761c81c1a9b0ec1ea'
+                        message: NONCE,
+                        signature: MOCKSIGN
                     });
                     done();
                 };
