@@ -370,6 +370,22 @@ describe('CSClient', function () {
         });
     });
 
+    describe('.extractServerEntropy', function () {
+        var csclient;
+        beforeEach(function () {
+            csclient = new CSClient(creation_opts);
+        });
+        it('should return correct data', function () {
+            var result = csclient.extractServerEntropy(MOCK_CREDENTIALSARRAY[0]).should.equal('Oxtf4DnG2Ff0FMuZ0MIn15Nc20QIdAGCeFV82YzAPE8=');
+        });
+        it('should return correct data', function () {
+            var result = csclient.extractServerEntropy(MOCK_CREDENTIALSARRAY[1]).should.equal('YD6FfjHGLX7fZC6IK0f+z1/6jOapnmExOCSmczW+2y0=');
+        });
+        it('should return correct data', function () {
+            var result = csclient.extractServerEntropy(MOCK_CREDENTIALSARRAY[2]).should.equal('rFWEcMAcO03WCu1/U5w8HUc9N0vHeaaSrRXLO62Xtj0=');
+        });
+    });
+
     describe('.joinServerFromDevice1', function () {
         var MOCK_CREDENTIALS = _.clone(MOCK_CREDENTIALSARRAY[0]);
 
