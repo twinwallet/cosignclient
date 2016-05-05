@@ -63,7 +63,7 @@ describe("noticeExtBackup", function () {
       });
       var noticeData = noticeBoard.postNotice.getCall(0).args[1];
       expect(noticeData.backupId).to.be.a('string');
-      expect(noticeData.backupId).to.have.length.above(6);
+      expect(noticeData.backupId.length).to.be.above(6);
     });
   });
 
