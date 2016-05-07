@@ -1,4 +1,6 @@
 # Clients library for cosignserver API
+[![Build Status](https://travis-ci.org/twinwallet/cosignclient.svg?branch=master)](https://travis-ci.org/twinwallet/cosignclient)
+[![Coverage Status](https://coveralls.io/repos/github/twinwallet/cosignclient/badge.svg?branch=temp)](https://coveralls.io/github/twinwallet/cosignclient?branch=temp)
 
 Requires cosignserver 
 
